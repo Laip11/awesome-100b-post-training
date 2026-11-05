@@ -1,0 +1,99 @@
+{
+  "version": "2026.11-bright",
+  "lenses": [
+    {
+      "id": "data_synthesis",
+      "group": "Data",
+      "title": "Data Synthesis",
+      "subtitle": "Trajectories, environments, and verifiable tasks",
+      "track": "data_synthesis"
+    },
+    {
+      "id": "pretraining",
+      "group": "Pre-training",
+      "title": "Pre-training",
+      "subtitle": "The base model, before post-training",
+      "track": "pretraining"
+    },
+    {
+      "id": "midtraining",
+      "group": "Mid-training",
+      "title": "Mid-training",
+      "subtitle": "Between pre-training and SFT",
+      "stage_ids": ["stage_0"]
+    },
+    {
+      "id": "sft",
+      "group": "Post-training",
+      "title": "SFT",
+      "subtitle": "Cold start and supervised trajectories",
+      "stage_ids": ["stage_1"]
+    },
+    {
+      "id": "rl_verifiable",
+      "group": "Post-training",
+      "title": "Verifiable RL",
+      "subtitle": "Math, code, and test-based rewards",
+      "stage_ids": ["stage_2"]
+    },
+    {
+      "id": "rl_open",
+      "group": "Post-training",
+      "title": "Open-ended RL",
+      "subtitle": "Rubrics, preferences, and soft rewards",
+      "stage_ids": ["stage_3", "stage_5"]
+    },
+    {
+      "id": "opd",
+      "group": "Post-training",
+      "title": "OPD",
+      "subtitle": "Only when the recipe uses distillation",
+      "stage_ids": ["stage_4"],
+      "optional": true
+    }
+  ],
+  "canonical_stages": [
+    {
+      "id": "stage_0",
+      "code": "阶段 0",
+      "title": "中期训练",
+      "subtitle": "后训练前置 / 退火注入",
+      "desc": "在进入正式 SFT 前，将长思维链、代码仓库 PR Diff、Agent 轨迹放到大上下文退火阶段注入，防止过长 SFT 损害后续 RL 探索可塑性。（这是本看板为横向对比设定的阶段框，不是某一篇论文自己的阶段名。）"
+    },
+    {
+      "id": "stage_1",
+      "code": "阶段 1",
+      "title": "监督微调",
+      "subtitle": "冷启动与专家轨迹微调",
+      "desc": "激发 Thinking/Non-thinking 双模式格式、注入专家拒绝采样轨迹，以及通过 Error Masking 保留错误上下文恢复能力。（这是本看板为横向对比设定的阶段框，不是某一篇论文自己的阶段名。）"
+    },
+    {
+      "id": "stage_2",
+      "code": "阶段 2",
+      "title": "可验证强化",
+      "subtitle": "数学、代码与有测试的任务",
+      "desc": "基于确定性规则、单元测试与多语言 Docker 沙盒的强化学习，重点解决 MoE 训推偏移、动态难度过滤与沙盒启动延迟。（这是本看板为横向对比设定的阶段框，不是某一篇论文自己的阶段名。）"
+    },
+    {
+      "id": "stage_3",
+      "code": "阶段 3",
+      "title": "开放任务强化",
+      "subtitle": "长程工具、评分细则与指令遵循",
+      "desc": "针对多跳搜索 (Deep Research)、复杂工具调用与指令遵循，使用仅必要 Rubric、自博弈 GRM 或 Groupwise 排序打分抑制刷分。（这是本看板为横向对比设定的阶段框，不是某一篇论文自己的阶段名。）"
+    },
+    {
+      "id": "stage_4",
+      "code": "阶段 4",
+      "title": "在线蒸馏",
+      "subtitle": "跨阶段或多专家的在线策略蒸馏",
+      "desc": "通过 On-Policy Distillation (OPD) 将垂直领域专家或前序各阶段最优 Checkpoint 无损融合，消除多阶段串行遗忘与梯度冲突。（这是本看板为横向对比设定的阶段框，不是某一篇论文自己的阶段名。）"
+    },
+    {
+      "id": "stage_5",
+      "code": "阶段 5",
+      "title": "通用偏好对齐",
+      "subtitle": "开放偏好与生成长度控制",
+      "desc": "开放域人类偏好对齐、安全防护，以及抑制推理模型过度思考 (Overthinking) 的思维链压缩与中断恢复偏见修正。（这是本看板为横向对比设定的阶段框，不是某一篇论文自己的阶段名。）"
+    }
+  ]
+}

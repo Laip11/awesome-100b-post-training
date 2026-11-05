@@ -1,0 +1,129 @@
+{
+  "id": "kimi-k2",
+  "name": "Kimi K2",
+  "org": "Moonshot",
+  "date": "2025.07",
+  "params_total": "1.04T",
+  "params_active": "32B",
+  "base_model": "Kimi-K2-Base",
+  "paradigm_type": "serial",
+  "paradigm_label": "Agentic SFT then joint verifiable and self-critic RL",
+  "openness": "Open base and instruct weights, Modified MIT",
+  "source_link": "https://arxiv.org/abs/2507.20534",
+  "source_label": "arXiv:2507.20534",
+  "infra_stack": "MuonClip; Gym-like RL",
+  "topology_summary": "先用大规模工具合成数据做 SFT，再在同一套强化学习里同时使用可验证奖励和自评 rubric。",
+  "stages": {
+    "stage_0": {
+      "status": "standard",
+      "headline": "上下文扩展写在预训练后期",
+      "summary": "4,096 长度上训练 15.5 万亿 token 之后，报告另用 4k 上 4000 亿 token 和 32k 上 600 亿 token 做上下文阶段，并用 YaRN 扩到 128k。报告没有把它命名为 mid-training。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "4000 亿与 600 亿 token 的上下文阶段是否完全独立于 15.5 万亿主训练，需要对照原文小节，不在这里合并成一次 mid-training。"
+      ],
+      "detail": ""
+    },
+    "stage_1": {
+      "status": "core",
+      "headline": "用 Muon 做指令微调，工具轨迹来自三步合成",
+      "summary": "后训练继续用 Muon。指令数据强调提示多样和回答质量，候选回答来自 K1.5 与内部专家模型，再由模型或人过滤。",
+      "methods": [
+        "工具规格可以来自真实工具，也可以由模型合成。",
+        "对每个工具集合生成 agent 和任务，再生成多步调用轨迹。"
+      ],
+      "data_And_filtering": "",
+      "infra_notes": "论文建议 K2 的微调也使用 Muon，因为基座是用 Muon 预训练的。",
+      "problems_solved": [
+        "env_synthesis"
+      ],
+      "gaps": [],
+      "detail": ""
+    },
+    "stage_2": {
+      "status": "core",
+      "headline": "可验证任务与自评奖励放在同一次 RL",
+      "summary": "可验证奖励覆盖大量任务。主观任务由模型对自己的两次输出做比较。难度用 SFT 模型的 pass@k 控制在中等。",
+      "methods": [
+        "规则能判定的指令用代码解释器；需要理解约束的用 LLM 评判，并加一层检查虚假完成声明。",
+        "可验证任务上的 on-policy 样本会回头更新 critic，把客观信号带进主观评判。"
+      ],
+      "data_And_filtering": "只保留对 SFT 模型既不太易也不太难的题。",
+      "infra_notes": "",
+      "problems_solved": [
+        "curriculum_efficiency",
+        "reward_hacking"
+      ],
+      "gaps": [
+        "RL 的 group size、学习率和总步数没有在已读小节里列出。"
+      ],
+      "detail": ""
+    },
+    "stage_3": {
+      "status": "core",
+      "headline": "开放任务用 self-critic rubric",
+      "summary": "自评 rubric 覆盖有用性、创造性、推理深度、事实性和安全。评判能力先在 SFT 阶段用公开和内部偏好数据初始化。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [
+        "reward_hacking"
+      ],
+      "gaps": [],
+      "detail": ""
+    },
+    "stage_4": {
+      "status": "skipped",
+      "headline": "没有在线蒸馏阶段",
+      "summary": "报告的收口是联合强化学习，不是 OPD。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    },
+    "stage_5": {
+      "status": "standard",
+      "headline": "开放对齐并进联合 RL，而不是再单开一轮",
+      "summary": "主观奖励和可验证奖励在同一个 RL 框架里更新。critic 会随策略继续用可验证信号校正。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    }
+  },
+  "tracks": {
+    "data_synthesis": {
+      "status": "core",
+      "headline": "工具规格、agent 与任务、轨迹，三步合成",
+      "summary": "先建真实工具与合成工具的规格库，再为抽到的工具集合生成 agent 和任务，最后生成完成任务的多步轨迹。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": "这是 K2 后训练里写得最具体的数据部分，服务的是工具使用，不是 SWE 容器农场。"
+    },
+    "pretraining": {
+      "status": "core",
+      "headline": "MuonClip 训完 15.5 万亿 token，没有 loss spike",
+      "summary": "1.04 万亿参数，激活 32B。384 个专家，MLA，隐藏维度 7168。前 10 万亿 token 学习率 2e-4，后 5.5 万亿余弦降到 2e-5。全局 batch 约 6700 万 token，权重衰减 0.1。",
+      "methods": [
+        "QK-Clip 把注意力 logits 限制在 τ=100。",
+        "数据域是网页、代码、数学和知识。"
+      ],
+      "data_And_filtering": "",
+      "infra_notes": "没有采用 DualPipe，因为对超过一万亿参数的模型，它带来的显存和流水线气泡成本过高。",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    }
+  },
+  "architecture": "moe"
+}

@@ -1,0 +1,151 @@
+{
+  "id": "intellect-3.1-106b",
+  "name": "INTELLECT-3.1",
+  "org": "Prime Intellect",
+  "date": "2026.02 - 05",
+  "params_total": "106B",
+  "params_active": "12B",
+  "base_model": "GLM-4.5-Air-Base",
+  "paradigm_type": "async_rl",
+  "paradigm_label": "SFT + Massively Parallel Multi-Env Async RLVR",
+  "openness": "Full Weights + 6.98M SFT & 70K RL Data + prime-rl + Environments Hub",
+  "source_link": "https://huggingface.co/PrimeIntellect/INTELLECT-3.1",
+  "source_label": "HF 模型卡：PrimeIntellect/INTELLECT-3.1",
+  "infra_stack": "prime-rl + verifiers + Environments Hub (500+ Envs)",
+  "topology_summary": "中心辐射式（Hub-and-Spoke）异步强化架构：基于与 Rufus-Air 相同的 106B 基座，在 698 万条 SFT 后直接进入单一的大规模 `prime-rl` 异步循环，同时挂载 Math、Code、Science、Deep Research 与 SWE 500+ 环境，并将首轮思考与容器拉起在时间上重叠。",
+  "stages": {
+    "stage_0": {
+      "status": "skipped",
+      "headline": "直接基于 GLM-4.5-Air-Base 启动",
+      "summary": "模型卡写明基座是 GLM-4.5-Air-Base，规模 106B、激活 12B。没有单独的 mid-training 小节。",
+      "methods": [
+        "基座模型直接进入大规模 SFT 阶段"
+      ],
+      "data_And_filtering": "N/A",
+      "infra_notes": "适配 prime-rl 分布式拓扑",
+      "problems_solved": [],
+      "gaps": [
+        "模型卡没有说明是否跳过 mid-training，只能确认它没有把这一步写成配方。",
+        "与 Rufus-Air 使用同一基座这件事，可以由两边都指向 GLM-4.5-Air-Base 核对；两边的后训练是否因此可直接对比，模型卡没有讨论。"
+      ],
+      "detail": "INTELLECT-3.1 的 Hugging Face 模型卡把它定义成 INTELLECT-3 的继续训练：在数学、代码、软件工程和 agent 任务上再做强化学习。基座字段是 zai-org/GLM-4.5-Air-Base。模型卡没有描述 Late Mid-Training。"
+    },
+    "stage_1": {
+      "status": "core",
+      "headline": "模型卡没有给出 698 万条 SFT",
+      "summary": "3.1 被写成在 INTELLECT-3 之上继续做 RL。模型卡没有列出 SFT 样本数。",
+      "methods": [
+        "模型卡确认的训练栈是 prime-rl 和 verifiers",
+        "权重、框架和环境以 MIT / Apache 2.0 开放。卡片没有把 6.98M SFT 数据列成发布物"
+      ],
+      "data_And_filtering": "未在 INTELLECT-3.1 模型卡中给出。",
+      "infra_notes": "推理示例是 2 张 H200 上的 vLLM，tensor parallel 2。",
+      "problems_solved": [
+        "forgetting_conflict"
+      ],
+      "gaps": [
+        "6.98M / 698 万条 SFT、以及“完全开源该 SFT 集”只出现在旧看板，不在已读的 3.1 模型卡里。",
+        "卡片指向的技术报告是 INTELLECT-3，不能把 3 的 SFT 数字自动记到 3.1 上。"
+      ],
+      "detail": "已核对的模型卡只说训练使用 prime-rl，环境用 verifiers 库构建，并发布在 Environments Hub。它把“technical report”链接到 INTELLECT-3 的 PDF，而不是一份单独的 3.1 报告。因此 6.98M SFT、去重和去污染不能从 3.1 卡片证实。"
+    },
+    "stage_2": {
+      "status": "core",
+      "headline": "在数学、代码、软件工程和 agent 任务上继续做 RL",
+      "summary": "模型卡确认额外 RL 的任务范围是 math、coding、software engineering 和 agentic tasks，框架是 prime-rl。",
+      "methods": [
+        "继续训练的任务域：数学、代码、软件工程、agent",
+        "环境由 verifiers 构建并放在 Environments Hub"
+      ],
+      "data_And_filtering": "模型卡未给出题库规模或在线过滤规则。",
+      "infra_notes": "prime-rl。卡片没有描述训推一致性或路由重放。",
+      "problems_solved": [
+        "env_synthesis",
+        "curriculum_efficiency"
+      ],
+      "gaps": [
+        "旧稿的 500+ 环境、698 万条之后进入单一异步环、以及首轮思考与沙盒预热重叠，都不在 3.1 模型卡中。",
+        "INTELLECT-3 技术报告摘要写的是在 GLM-4.5-Air-Base 上做 SFT 和 RL，并把 RL 扩到 512 张 H200。那是 3 而不是 3.1 的句子，不并进本阶段。"
+      ],
+      "detail": "这是模型卡对 3.1 本身的主要说明：它不是从 base 重新走完 INTELLECT-3，而是在 INTELLECT-3 上继续 RL。环境在 Environments Hub。卡片没有写异步调度、环境个数、组大小或难度过滤。"
+    },
+    "stage_3": {
+      "status": "core",
+      "headline": "Agent 任务在继续 RL 的范围内",
+      "summary": "Agent 任务包含在继续 RL 的范围内。模型卡没有单独的 Deep Research 或多跳搜索阶段。",
+      "methods": [
+        "环境在 Environments Hub，可用 verifiers 复现。具体环境名单要以 Hub 为准，卡片没有贴出清单。"
+      ],
+      "data_And_filtering": "未给出。",
+      "infra_notes": "未描述沙盒预热与首轮思考重叠。",
+      "problems_solved": [
+        "env_synthesis"
+      ],
+      "gaps": [
+        "Deep Research、500+ 环境这些旧稿细节未核到。"
+      ],
+      "detail": "模型卡把 agentic tasks 和 software engineering 并列为继续 RL 的内容，并说明 prime-rl 面向 agent RL、支持多轮和工具。这句话来自卡片对 prime-rl 的指向；3.1 卡片本身没有展开多轮协议。"
+    },
+    "stage_4": {
+      "status": "skipped",
+      "headline": "模型卡没有写蒸馏",
+      "summary": "模型卡没有蒸馏或跨阶段合并。",
+      "methods": [
+        "依靠多环境混合采样比例调节各领域能力平衡"
+      ],
+      "data_And_filtering": "N/A",
+      "infra_notes": "N/A",
+      "problems_solved": [],
+      "gaps": [
+        "不能根据“异步 RL 范式”推断他们做了或没做蒸馏。"
+      ],
+      "detail": "3.1 的公开说明停在继续 RL。没有 OPD、多教师或检查点融合的段落。"
+    },
+    "stage_5": {
+      "status": "standard",
+      "headline": "模型卡没有通用 RLHF 阶段",
+      "summary": "模型卡没有通用 RLHF 或思维链压缩阶段。",
+      "methods": [
+        "混合规则验证器与 LLM Judge 奖励信号"
+      ],
+      "data_And_filtering": "开源通用指令校验集",
+      "infra_notes": "集成在 `verifiers` 评判管线中",
+      "problems_solved": [
+        "reward_hacking"
+      ],
+      "gaps": [
+        "若这些阶段存在，它们不在 INTELLECT-3.1 模型卡里。"
+      ],
+      "detail": "已核对文本没有偏好模型、KL 约束或 overthinking 惩罚。"
+    }
+  },
+  "tracks": {
+    "data_synthesis": {
+      "status": "skipped",
+      "headline": "模型卡没有数据合成配方",
+      "summary": "环境用 verifiers 构建并放在 Environments Hub。卡片没有说明这些环境是怎么合成的。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "6.98M SFT 和 500+ 环境都未在 3.1 模型卡中出现。"
+      ],
+      "detail": ""
+    },
+    "pretraining": {
+      "status": "skipped",
+      "headline": "模型卡不写预训练，只给出 GLM-4.5-Air-Base",
+      "summary": "3.1 是在 INTELLECT-3 上继续做 RL。基座字段是 GLM-4.5-Air-Base，106B、激活 12B。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "预训练配方不在这张模型卡里。"
+      ],
+      "detail": ""
+    }
+  },
+  "architecture": "moe"
+}

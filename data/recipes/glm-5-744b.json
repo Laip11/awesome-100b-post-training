@@ -1,0 +1,165 @@
+{
+  "id": "glm-5-744b",
+  "name": "GLM-5",
+  "org": "Z.ai (智谱)",
+  "date": "2026.02 - 06",
+  "params_total": "744B",
+  "params_active": "40B",
+  "base_model": "GLM-5-Base",
+  "paradigm_type": "opd",
+  "paradigm_label": "Error-Masked SFT + Multi-Domain RL + Cross-Stage OPD",
+  "openness": "Open Weights + Detailed Report + Open-source `slime` Framework",
+  "source_link": "https://arxiv.org/abs/2602.15763",
+  "source_label": "arXiv:2602.15763 & slime Blog",
+  "infra_stack": "slime + vime (PD-Disaggregated Rollout + Delta Weight Sync)",
+  "topology_summary": "采用“带错误掩码 (Error Masking) 的专家轨迹 SFT → 四大域二元奖励混合 RL → 跨阶段在线策略蒸馏 (Cross-Stage OPD)”的回流收口拓扑，将各历史阶段的最优 Checkpoint 重新蒸馏回终版模型。",
+  "stages": {
+    "stage_0": {
+      "status": "standard",
+      "headline": "32K → 128K → 200K 的 mid-training，而不是 1M",
+      "summary": "上下文分三段加长：32K（1T token）、128K（500B）、200K（50B）。软件工程序列大约 160B 不重复 token。论文的后训练 SFT 上下文是 202,752，不是一百万。",
+      "methods": [
+        "三段式加长窗口，后段上采样长文档和合成 agent 轨迹",
+        "仓库级代码、commit diff、issue、PR 和相关源文件拼成训练序列；放宽仓库筛选后大约 1000 万组 issue–PR，再在单条 issue 上加严质量过滤",
+        "长上下文数据含书籍、论文和通用语料，以及类似 NextLong / EntropyLong 的合成长程依赖；200K 阶段加入少量 MRCR 式多轮召回数据"
+      ],
+      "data_And_filtering": "issue–PR 过滤后约 160B unique tokens。自然长文档经过 PPL、去重和长度过滤，并上采样知识密集领域。",
+      "infra_notes": "模型规模是 744B 总参数、40B 激活，256 个专家、80 层。DSA 把总规模推到 744B、训练预算约 28.5T token。这是架构和预训练设置，不是后训练 infra 的全部。",
+      "problems_solved": [],
+      "gaps": [
+        "旧稿写的 1M 上下文窗口与本报告不符。SFT 明确写的是 202,752 token。",
+        "已核对的报告给出一个 744B / 40B 激活的 GLM-5。GLM-5.2 没有单独的规模或配方，因此不另开一行。"
+      ],
+      "detail": "Mid-training 沿用 GLM-4.5 的框架，但加了训练量和最大长度。相对 GLM-4.5 的 128K 上限，多出来的 200K 阶段用来处理超长文档和多文件仓库。作者观察到 200K 阶段甚至能提高 128K 窗口内的长上下文表现。"
+    },
+    "stage_1": {
+      "status": "core",
+      "headline": "多任务 SFT：交错思考、保留思考、按轮开关",
+      "summary": "SFT 扩大了 Agent 和代码数据，并引入三种思考方式。错误轨迹片段留在上下文里，但损失被 mask 掉。",
+      "methods": [
+        "语料分 General Chat、Reasoning、Coding & Agent。最大长度 202,752",
+        "Interleaved Thinking：每次回答和工具调用前都思考。Preserved Thinking：代码 agent 跨轮保留全部思考块。Turn-level Thinking：简单请求可关掉思考",
+        "逻辑题用可验证问题加拒绝采样。数学和科学只保留对 GLM-4.7 很难、但仍可解的题",
+        "代码和 Agent 轨迹里的错误片段保留，损失掩码，让模型看到纠错而不强化错误动作"
+      ],
+      "data_And_filtering": "通用聊天收紧文风，角色扮演用自动和人工过滤。推理数据按难度过滤。Agent 轨迹来自执行环境，再用专家 RL 和拒绝采样提高质量。",
+      "infra_notes": "聊天模板随三种思考模式更新。",
+      "problems_solved": [
+        "forgetting_conflict",
+        "env_synthesis"
+      ],
+      "gaps": [
+        "三类 SFT 的样本条数和损失权重没有在 3.1 节给出。"
+      ],
+      "detail": "后训练的总顺序是：多任务 SFT，然后推理和 agent 的专项 RL，再是通用 RL，最后用 on-policy cross-stage distillation 收口，用来减轻前面阶段把已有能力训掉的问题。错误掩码发生在 SFT 的代码/Agent 轨迹上，不是一个独立的后处理阶段。"
+    },
+    "stage_2": {
+      "status": "core",
+      "headline": "IcePop 修正训推偏差，四域混合推理 RL",
+      "summary": "推理 RL 在 GRPO 上加 IcePop，并去掉 KL 项。DSA 的 indexer 使用确定性的 torch.topk，且默认冻结 indexer。",
+      "methods": [
+        "区分训练策略和采样用的推理策略。IcePop 去掉原公式里的 KL 正则以加快提升。训练完全 on-policy，group size 32，batch size 32。论文正文用符号给出阈值，没有在散文里重复数值",
+        "DSA indexer 若使用非确定性 CUDA top-k，RL 几步后会掉点并伴随熵骤降。训练引擎改用 torch.topk。默认冻结 indexer",
+        "数学、科学、代码、工具集成推理四域混合，总体大致均衡，各域用自己的二值结果奖励"
+      ],
+      "data_And_filtering": "数学和科学来自开源集以及和标注供应商共建的数据，难度过滤对准 GLM-4.7 很少做对或一直失败、但更强教师（文中举例 GPT-5.2 xhigh 与 Gemini 3 Pro Preview）仍能解的题。代码覆盖竞赛题和科学编程。TIR 复用更难的数学/科学子集，并另建必须用外部工具的 STEM 题。",
+      "infra_notes": "slime 是统一后训练框架。这一阶段的训推一致性重点是 DSA indexer 的确定性 top-k，论文把它类比成 MoE 的 routing replay，但说明不能直接把 indexer 的 top-k 全存下来。",
+      "problems_solved": [
+        "moe_off_policy",
+        "curriculum_efficiency"
+      ],
+      "gaps": [
+        "IcePop 的截断阈值只出现在公式里，卡片不把未抄出的符号写成具体小数。"
+      ],
+      "detail": "作者没有把 GLM-5 的推理 RL 写成 MoE routing replay。模型用的是 DSA。直接存储 indexer 每步 top-k 因为 k 远大于 MoE 专家数，存储和通信都不划算，所以改用确定性 top-k 算子。"
+    },
+    "stage_3": {
+      "status": "core",
+      "headline": "异步 Agent RL：TITO 网关和超过一万个可验证环境",
+      "summary": "代码和搜索 agent 走完全异步、训推解耦的框架。Token-in-Token-out 避免重分词；环境包括一万以上的真实 SWE、终端任务和高难度多跳搜索。",
+      "methods": [
+        "Multi-Task Rollout Orchestrator 把推理和训练解开，避免长程 rollout 让同步 RL 的 GPU 空等",
+        "TITO 网关按动作保留精确 token，消除重分词错位",
+        "Direct Double-sided Importance Sampling 在 rollout log-prob 上做 token 级截断，不保存历史策略检查点",
+        "DP-aware routing 用来提高长上下文 MoE 推理的 KV cache 复用"
+      ],
+      "data_And_filtering": "可验证环境覆盖三个域：超过 10K 的真实软件工程任务、终端任务，以及高难度多跳搜索。更细的构造在论文第 4 节。",
+      "infra_notes": "slime 用 HTTP 暴露 rollout。多轮场景把 prefill 和 decode 拆开，避免长前缀 prefill 打断正在进行的 decode。Rollout 用 FP8，并使用 MTP 缩短长尾。故障靠心跳。",
+      "problems_solved": [
+        "reward_hacking",
+        "env_synthesis"
+      ],
+      "gaps": [
+        "10K 是三类合计还是仅 SWE，句子的并列关系可以有两种读法，卡片保持论文原句，不改写成单一数字。"
+      ],
+      "detail": "Agent RL 要解决的是长程轨迹的吞吐和异步 off-policy，不是再做一轮推理题 GRPO。论文把环境扩展写成 SWE、终端和搜索三类，数量级是“over 10K real-world Software Engineering (SWE), terminal tasks, and high-difficulty multi-hop search tasks”。"
+    },
+    "stage_4": {
+      "status": "core",
+      "headline": "用前面阶段的检查点做 on-policy 跨阶段蒸馏",
+      "summary": "多阶段 RL 会丢掉先学的能力。最后用前面阶段的检查点当教师，在教师各自的 RL 提示上做 on-policy 蒸馏。group size 设为 1，batch size 1024。",
+      "methods": [
+        "教师是先前阶段的最终检查点，提示来自这些教师的 RL 训练集并按比例混合",
+        "优势项换成与教师 logit 的差距（stop-gradient），不再靠一组采样估计优势",
+        "教师 logit 目前从推理引擎取。group size 1，batch size 1024"
+      ],
+      "data_And_filtering": "提示混合自 Reasoning RL 和 General RL 等先前阶段的训练集。具体比例写成 “appropriate proportions”，没有数值表。",
+      "infra_notes": "因为优势来自教师差距，不再需要每条 prompt 采一大组样本。",
+      "problems_solved": [
+        "forgetting_conflict"
+      ],
+      "gaps": [
+        "教师检查点的完整名单和混合权重没有表。"
+      ],
+      "detail": "这一阶段的目的写得很具体：把 SFT、Reasoning RL 和 General RL 里已经获得、又被后续阶段冲掉的技能拉回来。它是流水线的最后一步，而不是插在 Agent RL 之前。"
+    },
+    "stage_5": {
+      "status": "standard",
+      "headline": "通用 RL：正确性、情商、任务质量三套目标",
+      "summary": "通用 RL 把目标拆成基础正确性、情感智识和任务质量，奖励同时用规则、ORM 和 GRM。另外加入人工撰写的回答当文风锚点。",
+      "methods": [
+        "基础正确性覆盖指令遵循、逻辑、事实、幻觉和语言流畅，被写成后续优化的前提",
+        "规则奖励精确但只能覆盖可判定方面；ORM 方差低但容易被 hack；GRM 更抗 hack 但方差更高。三者混用",
+        "加入高质量人工回答，避免优化只收敛到冗长、套话的模型文风"
+      ],
+      "data_And_filtering": "任务覆盖写作、文本处理、主客观问答、角色扮演和翻译。人工回答作为风格锚，不是唯一的训练文本。",
+      "infra_notes": "通用 RL 同样走 slime 的可定制 rollout。",
+      "problems_solved": [
+        "overthinking_latency"
+      ],
+      "gaps": [
+        "三维奖励的混合系数、人工回答条数和 KL 约束没有在 3.4 节给出。"
+      ],
+      "detail": "论文的顺序是专项 RL 在前、General RL 在后，再接跨阶段蒸馏。General RL 不是一个可有可无的润色，它有独立的三维目标和混合奖励。跨阶段蒸馏的正文点名要恢复的是 Reasoning RL 和 General RL 的技能。"
+    }
+  },
+  "tracks": {
+    "data_synthesis": {
+      "status": "standard",
+      "headline": "仓库数据主要写在 mid-training，不是单独一章",
+      "summary": "放宽仓库筛选后大约 1000 万组 issue–PR，过滤后约 160B 不重复 token，并检索更多相关文件拼进训练序列。SFT 另有拒绝采样和错误片段掩码。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "这是 mid-training 和 SFT 里的数据构造，论文没有再单列一个叫数据合成的阶段。"
+      ],
+      "detail": ""
+    },
+    "pretraining": {
+      "status": "standard",
+      "headline": "744B / 40B 激活，DSA，训练预算约 28.5T token",
+      "summary": "256 个专家、80 层。DSA 用来降低训练和推理成本。这些数字来自架构和预训练设置，不是后训练超参。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "预训练语料配比没有在已摘的后训练和 mid-training 小节里展开。"
+      ],
+      "detail": ""
+    }
+  },
+  "architecture": "moe"
+}

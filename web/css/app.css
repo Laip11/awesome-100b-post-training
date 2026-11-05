@@ -1,0 +1,75 @@
+/* Bright Daylight Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    .dark ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.45);
+    }
+
+    .cell-card {
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .cell-card h4 {
+      letter-spacing: -0.01em;
+    }
+    thead th {
+      hyphens: manual;
+    }
+    .sticky-variant {
+      left: 14rem;
+    }
+    .lead-claim {
+      font-size: 0.95rem;
+      line-height: 1.55;
+      font-weight: 600;
+    }
+    .cell-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);
+    }
+    .dimmed-cell {
+      opacity: 0.22;
+      filter: grayscale(85%);
+    }
+    .highlighted-cell {
+      box-shadow: 0 0 0 2.5px #4f46e5, 0 12px 24px -6px rgba(79, 70, 229, 0.22) !important;
+      background-color: #eef2ff !important;
+    }
+    .dark .highlighted-cell {
+      box-shadow: 0 0 0 2px #38bdf8, 0 8px 25px -5px rgba(56, 189, 248, 0.25) !important;
+      background-color: rgba(56, 189, 248, 0.1) !important;
+    }
+
+    /* Pipeline Flowchart Node Animations */
+    .pipeline-node {
+      transition: all 0.18s ease;
+    }
+    .pipeline-node:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px -4px rgba(79, 70, 229, 0.14);
+    }
+    .flow-arrow {
+      position: relative;
+    }
+    .bg-dot-grid {
+      background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+      background-size: 18px 18px;
+    }
+    .dark .bg-dot-grid {
+      background-image: radial-gradient(#1e293b 1px, transparent 1px);
+      background-size: 18px 18px;
+    }

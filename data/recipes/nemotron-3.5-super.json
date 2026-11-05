@@ -1,0 +1,265 @@
+{
+  "id": "nemotron-3.5-super",
+  "name": "Nemotron 3.5",
+  "org": "NVIDIA",
+  "date": "2026.04 - 10",
+  "params_total": "120B / 30B",
+  "params_active": "12B / 3B",
+  "base_model": "Nemotron-3/3.5 Hybrid Mamba2-MoE",
+  "paradigm_type": "opd",
+  "paradigm_label": "Agentic Mid-Training + Async GRPO + Multi-Teacher OPD",
+  "openness": "Full Weights + 153 Open Datasets + NeMo RL & NeMo Gym",
+  "source_link": "https://arxiv.org/abs/2610.38095",
+  "source_label": "arXiv:2610.38095；mid-training 配方另见 arXiv:2610.22019",
+  "infra_stack": "NeMo RL + NeMo Gym (NVFP4 Support + Native MTP)",
+  "topology_summary": "核心特征是“重度前置 Agentic SWE Mid-Training + 极轻量 SFT + NeMo Gym 五大环境并行异步 GRPO + 跨领域多教师蒸馏与原生 MTP 投机解码头联合训练”。",
+  "stages": {
+    "stage_0": {
+      "status": "core",
+      "headline": "Super 在长上下文检查点上再做 65.4B token 的 agentic mid-training",
+      "summary": "模型报告里，Super 的 mid-training 是 256K、65.4B token，之后还有约 9B token 的长上下文恢复。Lightning 没有这一阶段。",
+      "methods": [
+        "数据以自然软件工程文本为主：仓库、带 issue 的 PR、commit 历史和构建日志，保持原格式，不加 chat template。Agent trace 只占一小份，并且 mask 掉工具返回，只在模型自己的轮次上计算损失",
+        "所有来源相对 SWE-bench 和 Terminal-Bench 去污染，并去掉密钥",
+        "学习率重置后线性升到预训练末期的大约两倍，然后保持常数",
+        "256K 训练拉低了 RULER-1M，所以后面接了约 9B token 的长上下文恢复"
+      ],
+      "data_And_filtering": "模型报告 Table 4 给出 Super-3.5 的混合。配套的 mid-training 配方论文（arXiv:2610.22019）另报告 Super 上 280B token 的实验：同样的完整 SFT 之后，DeepSWE 从 11.7 到 15.7，SWE-bench Verified 从 72.9 到 74.3。两篇的 token 数不要当成同一次运行。",
+      "infra_notes": "序列长度 256K。配方论文还写明预训练几乎看不到 agent 交互，而过长的 SFT 会伤害后面的 RL，所以把自然软件数据放在中间。",
+      "problems_solved": [
+        "forgetting_conflict"
+      ],
+      "gaps": [
+        "65.4B（模型报告）和 280B（配方论文）不是同一个已核对数字，不能合并成一条配方。",
+        "旧稿若把 mid-training 写成 Lightning 也有，与模型报告相反：Lightning 3.5 没有 mid-training。"
+      ],
+      "detail": "模型报告用同一套实验性的约 33B token（2K step）SFT 比较 mid-training 前后。标准基准上最清楚的提升在 DeepSWE（pass@1 从 6.4 到 10.4）。SWE-bench Verified / Multilingual / Pro 在 OpenHands 下的变化落在大约 1 分的运行波动里。更大的差别是换 harness：另外五个 harness 上，mid-trained 模型在 SWE-bench Verified 平均高 8.6 分，Terminal-Bench 平均高 6.8 分。"
+    },
+    "stage_1": {
+      "status": "standard",
+      "headline": "Super 用两阶段 SFT 把文本基座训成多模态，Lightning 只有一轮文本 SFT",
+      "summary": "基座是纯文本。Super 先暖 vision projector，再做一轮通用混合，然后用一小段第二阶段补第一阶段没学够的能力。",
+      "methods": [
+        "第一阶段混合 vision、推理、聊天、长上下文、安全和 agent 数据",
+        "第二阶段只改混合比例，补第一阶段不足的能力",
+        "Lightning 用同一套文本数据做单阶段 SFT，不做 MOPD"
+      ],
+      "data_And_filtering": "视觉数据在 SFT 引入。模型报告提到对图像做 same-teacher 文本等价判断并去掉冗余格式，细节在视觉数据小节。",
+      "infra_notes": "先暖 vision projector，再进入两阶段 SFT。原因是视觉和文本放在同一步里难学。",
+      "problems_solved": [
+        "forgetting_conflict"
+      ],
+      "gaps": [
+        "两阶段各自的 token 数和采样权重没有在摘录里形成完整表。旧稿“极轻量 SFT”与“引入大量视觉数据的两阶段 SFT”不一致，以模型报告为准。"
+      ],
+      "detail": "Super 的后训练顺序与 Nemotron 3 Ultra 类似：SFT、RLVR、专家教师，最后 MOPD。SFT 的角色之一是把文本基座变成能处理图像、视频和工具环境的模型，而不是只做一份很轻的文本冷启动。"
+    },
+    "stage_2": {
+      "status": "core",
+      "headline": "RLVR 与 RLHF 一起做，并用 router replay 压训推 KL",
+      "summary": "这一阶段同时走可验证奖励和 RLHF。相对 Nemotron 3 Ultra，数据更新过，训练前先做 reward profiling。算法不变，另加 router replay 和 LM head 的 FP32。",
+      "methods": [
+        "样本按环境送到对应验证器或奖励模型",
+        "router replay（Ma et al., 2025）加上 LM head 使用 FP32，把训练引擎和推理引擎之间的 KL 误差降低一个数量级以上",
+        "金融工具环境建在 NeMo Gym 上，轨迹生成、SFT、RL 和评测使用同一套工具：SEC 文件搜索、文档解析、证据检索和带来源的提交"
+      ],
+      "data_And_filtering": "RL 数据换成更新的集合。金融数据有两条合成轨道：从标普 500 的 10-K/10-Q/8-K 抽窗口出题，以及按覆盖审计补 Vals.ai 分类里的缺口。题目用多种子投票和 GenSelect 检查可答性。",
+      "infra_notes": "NeMo Gym 在文中是这个金融 agent 环境的底座。报告没有在同一段把后训练 RL 写成“五个并行环境”的清单。",
+      "problems_solved": [
+        "moe_off_policy",
+        "curriculum_efficiency"
+      ],
+      "gaps": [
+        "“NeMo Gym 五大环境并行”没有在 3.2 节被逐一点名。已核对的是金融 agent 这一套，以及 agentic teacher 的 Terminal / SWE / Search。",
+        "RL 的学习率和 batch 只在 agentic teacher 小节给出 64 prompt × 16 generation。"
+      ],
+      "detail": "RL 的作用被写成：提高 SFT 模型的通用能力，并为后面的专用教师提供起点。Agentic teacher 从 text-RLVR 的 step-120 初始化，只用可执行的 Terminal、SWE 和 Search，不用单步环境。推理教师同样从 step-120 初始化。"
+    },
+    "stage_3": {
+      "status": "core",
+      "headline": "长程工具在 agentic teacher 和 NeMo Gym",
+      "summary": "长程工具能力主要落在 agentic teacher 和 NeMo Gym 环境里，而不是一个名叫 Rubric RL 的独立阶段。",
+      "methods": [
+        "Agentic teacher 不使用单步环境，只在沙盒里训练可执行的 Terminal、SWE 和 Search",
+        "最大轨迹年龄设为 1，避免过旧样本"
+      ],
+      "data_And_filtering": "难度相对 step-120 检查点做过筛选。具体通过率阈值未摘出。",
+      "infra_notes": "单条任务最长 2 小时。环境工具在 SFT、RL 和评测之间保持一致，避免格式错位。",
+      "problems_solved": [
+        "env_synthesis"
+      ],
+      "gaps": [
+        "旧稿中的“细粒度 Rubric / 自博弈 GRM”不是这篇报告用来组织 Super 后训练的阶段名。"
+      ],
+      "detail": "Agentic teacher 做端到端 GRPO：64 条 prompt、每条 16 个生成，batch 1024，轨迹最大年龄为 1，单条 rollout 超时 2 小时。任务难度按 step-120 text-RLVR 检查点做过 profiling。金融环境的奖励来自可执行工具和带来源的提交，不是一组可选 rubric。"
+    },
+    "stage_4": {
+      "status": "core",
+      "headline": "多教师 on-policy distillation，然后做 MTP boosting",
+      "summary": "Super 在 RL 之后做 MOPD，把专用教师蒸馏回学生。Lightning 没有 MOPD。MTP boosting 跑在 MOPD 的输出上。",
+      "methods": [
+        "给定某领域的 prompt，由该领域的教师按学生当前上下文提供 token 级监督：提高教师认为更可能的 token，压低教师认为更不可能的 token",
+        "教师从它们分支出去的那个检查点所在的流水线而来。Agentic teacher 和 reasoning teacher 都从 step-120 text-RLVR 初始化后再专项训练",
+        "MTP boosting 在 MOPD 之后，报告中的部署侧结果是：概率草案采样下，投机解码的接受长度最多提高 21.8%"
+      ],
+      "data_And_filtering": "教师按领域领取 prompt。各领域混合比例未在摘录中列成表。",
+      "infra_notes": "MOPD 用学生自己的 rollout，教师只在对应领域被咨询。",
+      "problems_solved": [
+        "forgetting_conflict",
+        "overthinking_latency"
+      ],
+      "gaps": [
+        "教师完整名单（除 agentic、reasoning、vision、alignment 这些小节标题）和每域采样权重没有在本轮收成一张表。"
+      ],
+      "detail": "这是报告里真正的“多专家再合一”。它发生在 RL 和专用教师之后，不是用权重平均替代蒸馏。Lightning 停在更轻的文本 SFT + RLVR，不能把 MOPD 写成两个模型共有的阶段。"
+    },
+    "stage_5": {
+      "status": "standard",
+      "headline": "对齐进入 MOPD，量化在单独章节",
+      "summary": "安全和对齐由 alignment teacher 进入 MOPD，而不是一条写在最后的通用 RLHF。推理长度控制在报告 3.9 节，量化在第 4 节。",
+      "methods": [
+        "用 Generative RM 替代传统标量 RM，输出推理判据后再给出奖励分"
+      ],
+      "data_And_filtering": "开源偏好对比与红队安全数据集",
+      "infra_notes": "NeMo RL GenRM 闭环评估",
+      "problems_solved": [
+        "reward_hacking"
+      ],
+      "gaps": [
+        "alignment teacher 的数据构成和奖励模型形式未在本轮展开。",
+        "不应把 NVFP4 的 99.62% 恢复写成 RL 奖励或 QAT 配方；报告把它放在量化章节。"
+      ],
+      "detail": "RL 阶段已经同时包含 RLHF 路由。后训练量化里，NVFP4 相对 BF16 的中位精度恢复是 99.62%。这是部署量化结果，不是后训练阶段的奖励设计。3.9 节讨论推理效率和控制，但本轮没有把它改写成一套独立的 CoT 压缩 RL 配方。"
+    }
+  },
+  "tracks": {
+    "data_synthesis": {
+      "status": "standard",
+      "headline": "Mid-training 以自然软件数据为主，agent 轨迹只占一小份",
+      "summary": "仓库、PR、commit 和构建日志保持原格式。Agent trace 做损失掩码，只训练模型自己的轮次。来源相对 SWE-bench 和 Terminal-Bench 去污染。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "配套配方论文写了各类数据怎么建，模型报告这一格没有把过滤阈值逐条抄全。"
+      ],
+      "detail": ""
+    },
+    "pretraining": {
+      "status": "standard",
+      "headline": "预训练是短上下文，几乎没有 agent 交互",
+      "summary": "Super 的基座是纯文本。视觉是到 SFT 才大量加进去的。过长的 SFT 会伤害后面的 RL，所以仓库级数据放在 mid-training。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "预训练 token 量和数据配比不在已核对的 mid-training 段落里。"
+      ],
+      "detail": ""
+    }
+  },
+  "variants": [
+    {
+      "id": "super",
+      "label": "Super",
+      "params_total": "120B",
+      "params_active": "12B"
+    },
+    {
+      "id": "lightning",
+      "label": "Lightning",
+      "params_total": "30B",
+      "params_active": "3B",
+      "overrides": {
+        "stage_0": {
+          "status": "skipped",
+          "headline": "没有 mid-training",
+          "summary": "模型报告写明 Lightning 3.5 没有 mid-training。65.4B token 的 256K 阶段只属于 Super。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "不能把 Super 的 65.4B 或配方论文里的 280B 记到 Lightning 上。"
+          ],
+          "detail": ""
+        },
+        "stage_1": {
+          "status": "standard",
+          "headline": "一轮文本 SFT",
+          "summary": "Lightning 用文本数据做单阶段 SFT，不做 Super 的视觉预热和两阶段混合，也不进入 MOPD。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_2": {
+          "status": "core",
+          "headline": "文本 RLVR",
+          "summary": "Lightning 的后训练比 Super 短：文本 SFT 之后做 RLVR。报告没有把 Super 的 agentic teacher 写到 Lightning 上。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [
+            "moe_off_policy"
+          ],
+          "gaps": [
+            "Lightning 的 RL batch、学习率和环境名单没有单独列表。"
+          ],
+          "detail": ""
+        },
+        "stage_3": {
+          "status": "skipped",
+          "headline": "未单列长程工具教师",
+          "summary": "Agentic teacher、NeMo Gym 金融环境和 2 小时 rollout 是 Super 的训练描述。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_4": {
+          "status": "skipped",
+          "headline": "没有 MOPD",
+          "summary": "多教师 on-policy distillation 和之后的 MTP boosting 只写在 Super 上。Lightning 没有这一阶段。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_5": {
+          "status": "skipped",
+          "headline": "没有单独的对齐教师阶段",
+          "summary": "alignment teacher 进入 MOPD 是 Super 的收尾。Lightning 停在 RLVR。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "pretraining": {
+          "status": "standard",
+          "headline": "30B / 3B 激活的文本模型",
+          "summary": "Lightning 比 Super 小，报告把它写成文本模型。预训练同样是短上下文、几乎没有 agent 交互。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "Lightning 的预训练 token 量没有在已核对段落里单列。"
+          ],
+          "detail": ""
+        }
+      }
+    }
+  ],
+  "architecture": "moe"
+}

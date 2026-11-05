@@ -1,0 +1,184 @@
+{
+  "id": "llama-4",
+  "name": "Llama 4",
+  "org": "Meta",
+  "date": "2025.04",
+  "params_total": "109B / 400B",
+  "params_active": "17B",
+  "base_model": "Llama 4",
+  "paradigm_type": "serial",
+  "paradigm_label": "Light SFT, online RL, light DPO",
+  "openness": "Open weights for Scout and Maverick",
+  "source_link": "https://ai.meta.com/blog/llama-4-multimodal-intelligence/",
+  "source_label": "Meta release note, April 2025",
+  "infra_stack": "Online RL with continual prompt filtering",
+  "topology_summary": "Scout 与 Maverick 的后训练都是轻量 SFT、在线 RL、轻量 DPO。Behemoth 仍在训练，只作为教师预览。",
+  "variants": [
+    {
+      "id": "scout",
+      "label": "Scout",
+      "params_total": "109B",
+      "params_active": "17B",
+      "overrides": {
+        "stage_0": {
+          "status": "core",
+          "headline": "中期训练把可用上下文推到 1,000 万",
+          "summary": "Scout 的预训练和后训练长度都是 256K。发布说明把继续训练称为 mid-training，并用它换取 Scout 的 10M 输入长度。",
+          "methods": [
+            "推理时使用 iRoPE：多数层用 RoPE，交错若干不带位置编码的注意力层，并做温度缩放。"
+          ],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "中期训练的 token 量和数据配方没有在发布说明里列出。"
+          ],
+          "detail": ""
+        }
+      }
+    },
+    {
+      "id": "maverick",
+      "label": "Maverick",
+      "params_total": "400B",
+      "params_active": "17B",
+      "overrides": {
+        "stage_0": {
+          "status": "skipped",
+          "headline": "发布说明没有单独给出 Maverick 的中期训练",
+          "summary": "10M 上下文和名为 mid-training 的继续训练是对 Scout 写的。Maverick 的公开数字是 400B 总参数、17B 激活、128 个路由专家加 1 个共享专家。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "pretraining": {
+          "status": "standard",
+          "headline": "预训练期间用 Behemoth 做协同蒸馏",
+          "summary": "Behemoth 当时仍在训练，288B 激活、近 2 万亿总参数，没有作为权重发布。Maverick 的协同蒸馏损失动态混合软标签和硬标签，发生在预训练，不是后训练 OPD。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "Behemoth 的后训练只在预览里描述，不能写成已发布配方。"
+          ],
+          "detail": ""
+        }
+      }
+    }
+  ],
+  "stages": {
+    "stage_0": {
+      "status": "standard",
+      "headline": "发布说明把长上下文继续训练称为 mid-training",
+      "summary": "这一名称明确对应 Scout 的 10M 上下文。Maverick 没有同一组数字。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    },
+    "stage_1": {
+      "status": "core",
+      "headline": "轻量 SFT，并删掉一半以上的简单样本",
+      "summary": "用 Llama 做评判，去掉超过 50% 被标成简单的 SFT 数据，只在更难的集合上做轻量监督微调。原因是过重的 SFT 会限制后面在线 RL 的探索。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [
+        "forgetting_conflict"
+      ],
+      "gaps": [
+        "保留下来的 SFT 条数没有公布。"
+      ],
+      "detail": ""
+    },
+    "stage_2": {
+      "status": "core",
+      "headline": "多模态在线 RL，并持续丢掉过易的提示",
+      "summary": "训练和过滤交替：用当前模型只保留中等和困难提示，再继续训练。",
+      "methods": [
+        "提示按难度筛选，而不是固定课程。"
+      ],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [
+        "curriculum_efficiency"
+      ],
+      "gaps": [
+        "RL 算法名称、group size 和学习率没有写在发布说明里。"
+      ],
+      "detail": ""
+    },
+    "stage_3": {
+      "status": "standard",
+      "headline": "模态混合用课程，而不是单独的 rubric 阶段",
+      "summary": "Maverick 要同时保住图像、推理和对话。发布说明写的是课程策略，使混合训练不比单模态专家差。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "课程的阶段划分和数据比例没有列出。"
+      ],
+      "detail": ""
+    },
+    "stage_4": {
+      "status": "skipped",
+      "headline": "后训练不是 OPD",
+      "summary": "Scout 和 Maverick 的后训练以轻量 DPO 结束。Maverick 从 Behemoth 得到的协同蒸馏写在预训练。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    },
+    "stage_5": {
+      "status": "standard",
+      "headline": "轻量 DPO 处理回答质量的边角",
+      "summary": "DPO 放在在线 RL 之后，而且保持轻量，避免再次把模型收得太死。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [
+        "reward_hacking"
+      ],
+      "gaps": [
+        "偏好数据规模没有公布。"
+      ],
+      "detail": ""
+    }
+  },
+  "tracks": {
+    "data_synthesis": {
+      "status": "skipped",
+      "headline": "发布说明没有数据合成流程",
+      "summary": "能核对的是用 Llama 评判删掉简单 SFT 样本，以及 RL 期间持续过滤提示。没有工具环境或仓库合成管线。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    },
+    "pretraining": {
+      "status": "standard",
+      "headline": "Scout 与 Maverick 都是每 token 激活 17B 的 MoE",
+      "summary": "Scout 为 109B 总参数、16 个专家。Maverick 为 400B 总参数、128 个路由专家，另有一个共享专家，每个 token 还要经过共享专家。Scout 的预训练长度是 256K。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "预训练 token 量和数据配比没有写在这篇发布说明里。"
+      ],
+      "detail": ""
+    }
+  },
+  "architecture": "moe"
+}

@@ -1,0 +1,183 @@
+{
+  "id": "deepseek-r1",
+  "name": "DeepSeek-R1",
+  "org": "DeepSeek",
+  "date": "2025.01",
+  "params_total": "V3-Base",
+  "params_active": "V3-Base",
+  "base_model": "DeepSeek-V3-Base",
+  "paradigm_type": "serial",
+  "paradigm_label": "GRPO on V3-Base; R1 adds cold start and a second RL",
+  "openness": "Open weights + Nature paper",
+  "source_link": "https://arxiv.org/abs/2501.12948",
+  "source_label": "Nature 2025 / arXiv:2501.12948",
+  "infra_stack": "GRPO",
+  "topology_summary": "R1-Zero 从 V3-Base 直接做规则奖励的 GRPO。R1 在此之前加冷启动，之后再做拒绝采样 SFT 和第二次 RL。",
+  "variants": [
+    {
+      "id": "r1-zero",
+      "label": "R1-Zero",
+      "params_total": "V3-Base",
+      "params_active": "V3-Base",
+      "overrides": {
+        "stage_1": {
+          "status": "skipped",
+          "headline": "RL 之前不做 SFT",
+          "summary": "R1-Zero 直接在 DeepSeek-V3-Base 上做强化学习，不用人类标注的推理轨迹做冷启动。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "正文摘录没有重写 V3-Base 的参数量。"
+          ],
+          "detail": ""
+        },
+        "stage_2": {
+          "status": "core",
+          "headline": "只用最终答案对错的 GRPO",
+          "summary": "奖励只看最终预测是否对照标准答案，不约束推理过程。训练中回答变长，并出现自我检验。",
+          "methods": [
+            "算法是 GRPO。",
+            "模板要求先写推理过程。"
+          ],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [
+            "curriculum_efficiency"
+          ],
+          "gaps": [],
+          "detail": "Nature 论文把这一设计写成：人类规定的推理格式可能限制探索，所以 R1-Zero 跳过常规 SFT。"
+        },
+        "stage_5": {
+          "status": "skipped",
+          "headline": "没有第二次对齐 RL",
+          "summary": "可读性差和中英混杂留到 R1 处理。R1-Zero 本身没有后续的有用性与无害性 RL。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        }
+      }
+    },
+    {
+      "id": "r1",
+      "label": "R1",
+      "params_total": "V3-Base",
+      "params_active": "V3-Base"
+    }
+  ],
+  "stages": {
+    "stage_0": {
+      "status": "skipped",
+      "headline": "没有名为 mid-training 的阶段",
+      "summary": "论文从 DeepSeek-V3-Base 进入后训练，没有单独的中期训练章节。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    },
+    "stage_1": {
+      "status": "core",
+      "headline": "数千条对话式冷启动，后面还有一轮拒绝采样 SFT",
+      "summary": "先收集呈现对话式、偏人类思考过程的冷启动数据，再做第一轮 RL。之后把推理数据和非推理数据一起做拒绝采样 SFT。",
+      "methods": [],
+      "data_And_filtering": "冷启动规模在正文里写成 thousands，细目在补充材料。",
+      "infra_notes": "",
+      "problems_solved": [
+        "forgetting_conflict"
+      ],
+      "gaps": [
+        "冷启动的精确条数和学科配比在正文摘录中没有展开。"
+      ],
+      "detail": ""
+    },
+    "stage_2": {
+      "status": "core",
+      "headline": "第一轮 RL 同时管语言一致性",
+      "summary": "在冷启动之后做强化学习，超参和数据见论文方法与补充材料。这一轮相对 R1-Zero 补上对话格式和语言一致性。",
+      "methods": [
+        "奖励同时覆盖任务表现和语言一致性。"
+      ],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [
+        "reward_hacking"
+      ],
+      "gaps": [],
+      "detail": ""
+    },
+    "stage_3": {
+      "status": "standard",
+      "headline": "拒绝采样把非推理数据并进 SFT",
+      "summary": "第二次 SFT 同时纳入推理与非推理数据，用来补写作等不单靠可验证答案的能力。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "非推理数据的构成没有在正文摘录里列成表。"
+      ],
+      "detail": ""
+    },
+    "stage_4": {
+      "status": "skipped",
+      "headline": "没有多教师在线蒸馏",
+      "summary": "论文用拒绝采样和第二次 RL 收口，没有 OPD。蒸馏在文中主要指把大模型的推理模式用于更小的模型，不是这一检查点的训练阶段。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    },
+    "stage_5": {
+      "status": "core",
+      "headline": "第二次 RL 兼顾有用、无害和推理",
+      "summary": "奖励模型见论文 Reward design。目标是提高 helpfulness 和 harmlessness，同时继续修推理。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [
+        "reward_hacking"
+      ],
+      "gaps": [
+        "第二次 RL 的步数和 KL 系数在正文摘录中没有列出。"
+      ],
+      "detail": ""
+    }
+  },
+  "tracks": {
+    "data_synthesis": {
+      "status": "standard",
+      "headline": "冷启动和拒绝采样，不是环境合成管线",
+      "summary": "冷启动数据要求呈现对话式思考。后续 SFT 使用模型自己的拒绝采样结果，并混入非推理数据。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "没有像后来的 agent 配方那样公开一套容器或工具环境合成流程。"
+      ],
+      "detail": ""
+    },
+    "pretraining": {
+      "status": "skipped",
+      "headline": "直接使用 DeepSeek-V3-Base",
+      "summary": "R1 与 R1-Zero 都从 DeepSeek-V3-Base 开始。这篇论文不重写 V3 的预训练。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "已读的 R1 正文没有重写总参数和激活参数。规模需要回看 V3 报告。"
+      ],
+      "detail": ""
+    }
+  },
+  "architecture": "moe"
+}

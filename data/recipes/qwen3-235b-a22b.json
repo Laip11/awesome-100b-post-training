@@ -1,0 +1,140 @@
+{
+  "id": "qwen3-235b-a22b",
+  "name": "Qwen3",
+  "org": "Alibaba",
+  "date": "2025.05",
+  "params_total": "235B",
+  "params_active": "22B",
+  "base_model": "Qwen3-235B-A22B-Base",
+  "paradigm_type": "serial",
+  "paradigm_label": "Long-CoT cold start, reasoning GRPO, mode-fusion SFT, general RL",
+  "openness": "Open weights + technical report",
+  "source_link": "https://arxiv.org/abs/2505.09388",
+  "source_label": "arXiv:2505.09388",
+  "infra_stack": "GRPO",
+  "topology_summary": "旗舰模型四段后训练：长思维链冷启动、数学与代码 GRPO、思考/非思考融合 SFT、通用强化学习。强到弱蒸馏用于更小的模型。",
+  "variants": [
+    {
+      "id": "235b-a22b",
+      "label": "235B-A22B",
+      "params_total": "235B",
+      "params_active": "22B"
+    }
+  ],
+  "stages": {
+    "stage_0": {
+      "status": "skipped",
+      "headline": "长上下文写在预训练第三阶段",
+      "summary": "报告把 4,096 扩到 32,768 的长上下文训练称作预训练最后一阶段，没有使用 mid-training 这个名称。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    },
+    "stage_1": {
+      "status": "core",
+      "headline": "长思维链冷启动，推理 RL 之后再做模式融合 SFT",
+      "summary": "冷启动覆盖数学、代码、逻辑和 STEM，并尽量少样本、少步数，避免在 RL 前把格式锁死。融合阶段用 /think 与 /no_think 把两种模式放进同一个模型。",
+      "methods": [
+        "查询先丢掉不易验证、以及 72B 指令模型不用思维链也能答对的题。",
+        "回答由 QwQ-32B 生成，再滤掉错答案、重复、猜题和思维与摘要不一致的样本。",
+        "融合 SFT 的思考数据来自第二阶段模型对第一阶段查询的拒绝采样。"
+      ],
+      "data_And_filtering": "冷启动故意把样本数和步数压低。融合数据另含编码、数学、指令、多语言、写作、问答和角色扮演。",
+      "infra_notes": "",
+      "problems_solved": [
+        "forgetting_conflict"
+      ],
+      "gaps": [],
+      "detail": "旗舰模型的前两段建立思考能力，后两段补非思考能力。强到弱蒸馏不是 235B-A22B 的四阶段，而是给更小模型用的。"
+    },
+    "stage_2": {
+      "status": "core",
+      "headline": "3,995 道可验证题上的 GRPO",
+      "summary": "题目不与冷启动重复，对冷启动模型可学、尽量难，并覆盖多个子领域。Qwen3-235B-A22B 的 AIME 2024 在 170 步内从 70.1 升到 85.1。",
+      "methods": [
+        "使用 GRPO。",
+        "大批量和每题多条 rollout，并用 off-policy 提高样本效率。",
+        "用熵把探索维持在稳定或缓慢上升。"
+      ],
+      "data_And_filtering": "3,995 个 query-verifier 对。",
+      "infra_notes": "",
+      "problems_solved": [
+        "curriculum_efficiency"
+      ],
+      "gaps": [
+        "group size 和学习率没有在 4.2 节写成数字。"
+      ],
+      "detail": ""
+    },
+    "stage_3": {
+      "status": "standard",
+      "headline": "非思考数据用自动清单过滤",
+      "summary": "融合阶段的非思考数据覆盖指令遵循、多语言、写作和角色扮演，并用自动生成的清单评估回答。低资源语言额外提高翻译占比。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    },
+    "stage_4": {
+      "status": "skipped",
+      "headline": "旗舰模型不做强到弱蒸馏",
+      "summary": "报告写明强到弱蒸馏用来替代小模型的四阶段训练，包括离策略回答蒸馏和在线 logit 蒸馏。235B-A22B 走的是四阶段本身。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": "小模型蒸馏大约只用四阶段训练 GPU 时的 1/10，并提高 Pass@1 和 Pass@64。这不是本行旗舰模型的阶段。"
+    },
+    "stage_5": {
+      "status": "standard",
+      "headline": "第四阶段是通用领域强化学习",
+      "summary": "模式融合之后，报告用通用领域 RL 提高下游任务表现，并支持用思考 token 预算控制推理深度。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [
+        "overthinking_latency"
+      ],
+      "gaps": [
+        "通用 RL 的奖励模型、提示规模和训练步数没有在摘要层展开。"
+      ],
+      "detail": ""
+    }
+  },
+  "tracks": {
+    "data_synthesis": {
+      "status": "standard",
+      "headline": "用 Qwen2.5 系列合成预训练文本，后训练另有拒绝采样",
+      "summary": "预训练用 Qwen2.5-Math 和 Qwen2.5-Coder 合成教材、问答、指令和代码，并用 Qwen2.5-VL 从 PDF 抽文本。后训练冷启动的回答来自 QwQ-32B。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "合成预训练文本的条数只写到万亿量级，没有分域表。"
+      ],
+      "detail": ""
+    },
+    "pretraining": {
+      "status": "standard",
+      "headline": "36 万亿 token，分通用、推理和长上下文三段",
+      "summary": "235B 总参数、每 token 激活 22B，128 个专家中激活 8 个，没有共享专家。第一段超过 30 万亿 token、序列 4,096；第二段约 5 万亿更高比例的 STEM 与代码；第三段在 32,768 长度上训练数千亿 token。",
+      "methods": [
+        "RoPE base 从 1 万提到 100 万，并用 YARN 和 Dual Chunk Attention 在推理时再把长度能力提高约四倍。",
+        "MoE 使用 global-batch load-balancing loss。"
+      ],
+      "data_And_filtering": "119 种语言和方言。实例级标注超过 30 万亿 token 后做配比。",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    }
+  },
+  "architecture": "moe"
+}

@@ -1,0 +1,2365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2026 100B+ Post-Training Recipes Atlas | 百亿/千亿级大模型后训练配方全景看板</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            slate: {
+              850: '#151e2e',
+              925: '#0b111e',
+              950: '#060a12'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Bright Daylight Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    .dark ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.45);
+    }
+
+    .cell-card {
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .cell-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);
+    }
+    .dimmed-cell {
+      opacity: 0.22;
+      filter: grayscale(85%);
+    }
+    .highlighted-cell {
+      box-shadow: 0 0 0 2.5px #4f46e5, 0 12px 24px -6px rgba(79, 70, 229, 0.22) !important;
+      background-color: #eef2ff !important;
+    }
+    .dark .highlighted-cell {
+      box-shadow: 0 0 0 2px #38bdf8, 0 8px 25px -5px rgba(56, 189, 248, 0.25) !important;
+      background-color: rgba(56, 189, 248, 0.1) !important;
+    }
+
+    /* Pipeline Flowchart Node Animations */
+    .pipeline-node {
+      transition: all 0.18s ease;
+    }
+    .pipeline-node:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px -4px rgba(79, 70, 229, 0.14);
+    }
+    .flow-arrow {
+      position: relative;
+    }
+    .bg-dot-grid {
+      background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+      background-size: 18px 18px;
+    }
+    .dark .bg-dot-grid {
+      background-image: radial-gradient(#1e293b 1px, transparent 1px);
+      background-size: 18px 18px;
+    }
+  </style>
+</head>
+
+<body class="bg-[#F8FAFC] dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen flex flex-col selection:bg-indigo-600 selection:text-white">
+
+  <!-- ======================= TOP HEADER ======================= -->
+  <header class="sticky top-0 z-30 border-b border-slate-200/90 dark:border-slate-800/80 bg-white/95 dark:bg-slate-950/90 backdrop-blur-md shadow-xs">
+    <div class="max-w-[1640px] mx-auto px-4 sm:px-6 py-3 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+      <!-- Left Brand & Title -->
+      <div class="flex items-start sm:items-center gap-3.5">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-500 to-sky-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0 mt-0.5 sm:mt-0">
+          <i class="ph-bold ph-flow-arrow text-xl"></i>
+        </div>
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+              2026 100B+ Post-Training Recipes Atlas
+            </h1>
+            <span class="px-2.5 py-0.5 text-[11px] font-mono font-semibold rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30">
+              v2026.11 · Bright Edition + Custom Pipelines
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            百亿/千亿级稀疏 MoE 大模型后训练标准主干、各厂商专属 Pipeline 拓扑图与核心工程痛点全景对比库
+          </p>
+        </div>
+      </div>
+
+      <!-- Right Actions & Navigation Tabs -->
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Main View Switcher (5 Tabs) -->
+        <nav class="flex flex-wrap items-center bg-slate-100/90 dark:bg-slate-900 p-1 rounded-xl border border-slate-200/90 dark:border-slate-800 text-xs font-medium">
+          <button onclick="switchView('swimlane')" id="tab-swimlane" class="view-tab px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all bg-white dark:bg-slate-800 text-indigo-600 dark:text-sky-400 shadow-xs font-semibold">
+            <i class="ph-bold ph-table"></i>
+            <span>1. 全景阶段泳道</span>
+          </button>
+          <button onclick="switchView('pipelines')" id="tab-pipelines" class="view-tab px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <i class="ph-bold ph-git-fork text-indigo-500"></i>
+            <span>2. 厂商专属 Pipeline 图谱</span>
+            <span class="px-1.5 py-0.2 text-[10px] rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-bold">NEW</span>
+          </button>
+          <button onclick="switchView('problems')" id="tab-problems" class="view-tab px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <i class="ph-bold ph-first-aid-kit"></i>
+            <span>3. 痛点攻关矩阵</span>
+          </button>
+          <button onclick="switchView('diff')" id="tab-diff" class="view-tab px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <i class="ph-bold ph-scales"></i>
+            <span>4. 双模型 A/B 对比</span>
+          </button>
+          <button onclick="switchView('repo')" id="tab-repo" class="view-tab px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <i class="ph-bold ph-code-block"></i>
+            <span>5. Repo 维护与导出</span>
+          </button>
+        </nav>
+
+        <!-- Theme Toggle -->
+        <button onclick="toggleTheme()" class="px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 text-xs font-medium shadow-2xs" title="切换明亮/深色模式">
+          <i id="theme-icon" class="ph-bold ph-moon text-sm text-indigo-600 dark:text-amber-400"></i>
+          <span id="theme-label" class="hidden sm:inline">深色</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================= TOP SUMMARY & FILTER BAR (FOR SWIMLANE) ======================= -->
+  <section id="control-bar" class="border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-925/70">
+    <div class="max-w-[1640px] mx-auto px-4 sm:px-6 py-3 flex flex-col gap-2.5">
+      
+      <!-- Top Row: Paradigm Filter + Search + Quick Stats -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <!-- Paradigm Filter -->
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1">
+            <i class="ph-bold ph-funnel text-indigo-600"></i> 后训练流派:
+          </span>
+          <button onclick="setParadigmFilter('all')" data-paradigm="all" class="paradigm-btn px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow-xs transition">
+            全部模型 (7)
+          </button>
+          <button onclick="setParadigmFilter('serial')" data-paradigm="serial" class="paradigm-btn px-3 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-indigo-400 transition">
+            串行阶段演进 (Serial Pipeline)
+          </button>
+          <button onclick="setParadigmFilter('opd')" data-paradigm="opd" class="paradigm-btn px-3 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-emerald-400 transition">
+            分治专家 + 在线蒸馏 (Specialist + OPD)
+          </button>
+          <button onclick="setParadigmFilter('async_rl')" data-paradigm="async_rl" class="paradigm-btn px-3 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-amber-400 transition">
+            大规模多环境异步 RL (Async Multi-Env RL)
+          </button>
+        </div>
+
+        <!-- Search Box & Reset -->
+        <div class="flex items-center gap-2">
+          <div class="relative flex-1 sm:w-64">
+            <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input 
+              id="search-input" 
+              type="text" 
+              oninput="handleSearch(this.value)"
+              placeholder="搜索算法 (如 CISPO, OPD, GRM, slime)..." 
+              class="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition"
+            />
+          </div>
+          <button onclick="expandAllInlinePipelines()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition flex items-center gap-1" title="在表格内展开或折叠所有厂商的专属训练流程图">
+            <i class="ph-bold ph-git-fork"></i>
+            <span id="expand-all-btn-text">展开全部内联 Pipeline</span>
+          </button>
+          <button onclick="resetAllFilters()" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 transition flex items-center gap-1" title="重置高亮与过滤">
+            <i class="ph-bold ph-arrow-counter-clockwise"></i>
+            <span>重置</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Second Row: Core Problem Highlight Pills -->
+      <div class="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200/70 dark:border-slate-800/60">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1">
+          <i class="ph-bold ph-target text-rose-600"></i> 点击痛点高亮对应解法:
+        </span>
+        <div id="problem-pills-container" class="flex flex-wrap items-center gap-1.5">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================= MAIN WORKSPACE ======================= -->
+  <main class="flex-1 max-w-[1640px] w-full mx-auto px-4 sm:px-6 py-5">
+
+    <!-- =================================================================== -->
+    <!-- VIEW 1: PIPELINE SWIMLANE MATRIX + INLINE EXPANDABLE PIPELINES      -->
+    <!-- =================================================================== -->
+    <div id="view-swimlane" class="space-y-4">
+      <!-- Legend & Instruction Banner -->
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-indigo-50/70 dark:bg-sky-500/5 border border-indigo-200/80 dark:border-sky-500/20 text-xs text-slate-700 dark:text-slate-300">
+        <div class="flex items-center gap-2">
+          <i class="ph-fill ph-info text-indigo-600 dark:text-sky-400 text-base shrink-0"></i>
+          <span>
+            <strong>使用指南：</strong>横轴为统一的 <strong>6 大后训练标准阶段</strong>；点击左侧模型栏下方的 <strong>“展开专属 Pipeline 拓扑图”</strong> 按钮，可直接在该行下方查看该厂商独有的训练架构图；点击任意卡片可滑出右侧参数详情。
+          </span>
+        </div>
+        <div class="flex items-center gap-3 shrink-0 font-mono text-[11px]">
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> 核心重度阶段</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block"></span> 标准配置阶段</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600 inline-block"></span> 跳过/合并至他处</span>
+        </div>
+      </div>
+
+      <!-- Horizontal Scrollable Swimlane Table -->
+      <div class="overflow-x-auto rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-sm">
+        <table class="w-full border-collapse min-w-[1400px] text-left">
+          <thead>
+            <tr id="swimlane-header-row" class="border-b border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/95 text-xs">
+              <!-- Populated dynamically via JS -->
+            </tr>
+          </thead>
+          <tbody id="swimlane-body" class="divide-y divide-slate-200/90 dark:divide-slate-800/80 text-xs">
+            <!-- Populated dynamically via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 2: DEDICATED VENDOR TRAINING PIPELINE TOPOLOGIES (NEW!)        -->
+    <!-- =================================================================== -->
+    <div id="view-pipelines" class="hidden space-y-5">
+      <!-- Top Selector & Explanation Bar -->
+      <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+              Architectural Topology View
+            </span>
+            <h2 class="text-base font-bold text-slate-900 dark:text-white">
+              各厂商 100B+ 模型专属后训练 Pipeline 拓扑图谱
+            </h2>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            不同厂商的后训练拓扑存在本质差异（如 Amazon 的<strong>单链条 8 阶段防 Hack 串行流</strong>、DeepSeek-V4 的<strong>4 专家分治扇出与统一在线蒸馏扇入 DAG</strong>、MiniMax 的<strong>数据合成环+强化环双引擎</strong>）。点击图谱中的任意节点可查看对应阶段的参数与防坑细节。
+          </p>
+        </div>
+
+        <!-- Model Filter Pills for Pipeline View -->
+        <div id="pipeline-selector-pills" class="flex flex-wrap items-center gap-1.5 shrink-0">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <!-- Dedicated Pipelines Container -->
+      <div id="dedicated-pipelines-container" class="space-y-6">
+        <!-- Populated dynamically via JS -->
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 3: PROBLEM-CENTRIC MATRIX                                      -->
+    <!-- =================================================================== -->
+    <div id="view-problems" class="hidden space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 rounded-xl bg-rose-50/80 dark:bg-rose-500/5 border border-rose-200/80 dark:border-rose-500/20 text-xs text-slate-700 dark:text-slate-300">
+        <div class="flex items-center gap-2">
+          <i class="ph-fill ph-lightning text-rose-600 dark:text-rose-400 text-base shrink-0"></i>
+          <span>
+            <strong>以问题为中心（Problem-Centric Taxonomy）：</strong>在 100B+ 稀疏 MoE 规模下，单纯堆砌 SFT 或 GRPO 会迅速遭遇路由崩溃、长度膨胀或多任务遗忘。以下汇总各厂商在 2026 年公开的具体工程与算法拆解。
+          </span>
+        </div>
+      </div>
+
+      <div id="problem-cards-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <!-- Populated dynamically via JS -->
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 4: A/B MODEL DIFF VIEW (WITH VISUAL PIPELINE COMPARISON)       -->
+    <!-- =================================================================== -->
+    <div id="view-diff" class="hidden space-y-5">
+      <!-- Preset Bar & Selectors -->
+      <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <h2 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <i class="ph-bold ph-scales text-indigo-600"></i>
+            双模型专属 Pipeline 拓扑与逐阶段 A/B 深度对比
+          </h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            同时并排展示两个模型的<strong>专属训练流程图谱</strong>与<strong>6 大标准阶段逐项参数差异</strong>。
+          </p>
+        </div>
+
+        <!-- Quick Presets -->
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs font-medium text-slate-400 mr-1">一键预设对比:</span>
+          <button onclick="setDiffPair('rufus-air-106b', 'intellect-3.1-106b')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-100 transition">
+            🔥 同 106B 基座对决: Rufus-Air vs INTELLECT-3.1
+          </button>
+          <button onclick="setDiffPair('rufus-air-106b', 'deepseek-v4')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 transition">
+            ⚡ 串行 vs 分治蒸馏: Rufus-Air vs DeepSeek-V4
+          </button>
+          <button onclick="setDiffPair('nemotron-3.5-super', 'glm-5-744b')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300 border border-sky-200 dark:border-sky-500/30 hover:bg-sky-100 transition">
+            📘 Mid-Training vs Error-Mask: Nemotron 3.5 vs GLM-5
+          </button>
+          <button onclick="setDiffPair('mimo-v2.6', 'minimax-m2.5')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 transition">
+            🛠️ Agent 沙盒对决: MiMo-V2.6 vs MiniMax-M2.5
+          </button>
+        </div>
+      </div>
+
+      <!-- Model A / Model B Dropdowns -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="p-3.5 rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50/60 dark:bg-indigo-500/5 flex items-center justify-between gap-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400">Model A (左侧/上方基准配方)</span>
+          <select id="diff-select-a" onchange="renderDiffView()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 shadow-2xs">
+          </select>
+        </div>
+        <div class="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-500/5 flex items-center justify-between gap-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Model B (右侧/下方对照配方)</span>
+          <select id="diff-select-b" onchange="renderDiffView()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 shadow-2xs">
+          </select>
+        </div>
+      </div>
+
+      <!-- Diff Content Container -->
+      <div id="diff-comparison-container" class="space-y-4">
+        <!-- Populated dynamically via JS -->
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 5: REPO ARCHITECTURE, JSON BUILDER & README GENERATOR          -->
+    <!-- =================================================================== -->
+    <div id="view-repo" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left 5 Cols: Repo Blueprint & New Model Generator -->
+        <div class="lg:col-span-5 space-y-5">
+          <div class="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i class="ph-bold ph-folder-notch-open text-indigo-600 text-lg"></i>
+                推荐 GitHub Repo 目录架构
+              </h3>
+              <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">Data-View Decoupled</span>
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              将<strong>后训练标准阶段（Backbone）</strong>、<strong>痛点分类（Problems）</strong>与<strong>各模型独立配方及专属拓扑（Recipes）</strong>拆分为独立 JSON，社区贡献者只需提交单个模型的 JSON 文件即可通过 GitHub Action 自动合入网页与 README。
+            </p>
+            <pre class="p-4 rounded-xl bg-slate-900 text-slate-100 font-mono text-xs overflow-x-auto leading-relaxed border border-slate-800">awesome-100b-post-training/
+├── data/
+│   ├── backbone.json        # 固定的 6 大后训练阶段定义
+│   ├── problems.json        # 6 大核心工程/算法痛点字典
+│   └── recipes/             # 每个模型独立一个 JSON (含专属拓扑节点)
+│       ├── rufus-air-106b.json
+│       ├── intellect-3.1-106b.json
+│       ├── nemotron-3.5-super.json
+│       ├── glm-5-744b.json
+│       ├── deepseek-v4.json
+│       ├── mimo-v2.6.json
+│       └── minimax-m2.5.json
+├── scripts/
+│   ├── build_site_data.py   # 校验 JSON 并打包生成前端数据
+│   └── generate_readme.py   # 自动生成 README 静态 Markdown 对比表
+├── docs/
+│   └── index.html           # 当前交互式看板 (GitHub Pages 直接托管)
+└── README.md</pre>
+          </div>
+
+          <!-- Interactive New Recipe Generator Form -->
+          <div class="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-4">
+            <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <i class="ph-bold ph-plus-circle text-emerald-600 text-lg"></i>
+              快速生成新模型 JSON 模板 (PR Helper)
+            </h3>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <label class="block text-slate-500 mb-1 font-medium">模型名称 (Model Name)</label>
+                <input id="form-name" type="text" value="Qwen3.8-2.4T" oninput="updateTemplatePreview()" class="w-full px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"/>
+              </div>
+              <div>
+                <label class="block text-slate-500 mb-1 font-medium">机构 & 发布年月</label>
+                <input id="form-org" type="text" value="Alibaba · 2026.08" oninput="updateTemplatePreview()" class="w-full px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"/>
+              </div>
+              <div>
+                <label class="block text-slate-500 mb-1 font-medium">总参数 / 激活参数</label>
+                <input id="form-params" type="text" value="2.4T Total / 95B Active" oninput="updateTemplatePreview()" class="w-full px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"/>
+              </div>
+              <div>
+                <label class="block text-slate-500 mb-1 font-medium">后训练拓扑类型</label>
+                <select id="form-paradigm" onchange="updateTemplatePreview()" class="w-full px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white">
+                  <option value="opd">Fan-out Specialists -> Unified OPD</option>
+                  <option value="serial">Multi-Stage Serial Chain</option>
+                  <option value="async_rl">Hub-and-Spoke Async Multi-Env RL</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-xs text-slate-500">自动生成的 `data/recipes/new-model.json` 片段:</span>
+                <button onclick="copyGeneratedTemplate()" class="text-xs text-indigo-600 hover:text-indigo-500 font-semibold flex items-center gap-1">
+                  <i class="ph-bold ph-copy"></i> 复制 JSON
+                </button>
+              </div>
+              <pre id="template-json-preview" class="p-3 rounded-xl bg-slate-900 text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-56 border border-slate-800"></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right 7 Cols: Full Dataset JSON & README.md Markdown Exporter -->
+        <div class="lg:col-span-7 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i class="ph-bold ph-database text-indigo-600 text-lg"></i>
+                仓库初始数据源与 `README.md` 一键导出
+              </h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                可直接导出全量结构化 JSON 或自动生成的 GitHub `README.md` 静态汇总表格。
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="copyReadmeMarkdown()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1.5 shadow-xs">
+                <i class="ph-bold ph-markdown-logo"></i>
+                <span>复制 GitHub README.md 表格</span>
+              </button>
+              <button onclick="copyFullDataset()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white transition flex items-center gap-1.5 shadow-xs">
+                <i class="ph-bold ph-copy"></i>
+                <span>复制完整 JSON</span>
+              </button>
+            </div>
+          </div>
+          <pre id="full-json-viewer" class="flex-1 p-4 rounded-xl bg-slate-900 text-slate-200 font-mono text-xs overflow-auto max-h-[680px] border border-slate-800 leading-relaxed"></pre>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ======================= RIGHT SLIDE-OVER DETAIL DRAWER ======================= -->
+  <div id="detail-drawer-backdrop" onclick="closeDrawer()" class="fixed inset-0 bg-slate-900/35 backdrop-blur-xs z-40 hidden transition-opacity"></div>
+  <aside id="detail-drawer" class="fixed top-0 right-0 h-full w-full max-w-xl bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 z-50 transform translate-x-full transition-transform duration-300 ease-out flex flex-col shadow-2xl">
+    <!-- Drawer Header -->
+    <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-4 bg-slate-50/80 dark:bg-slate-925">
+      <div id="drawer-header-content">
+        <!-- Populated via JS -->
+      </div>
+      <button onclick="closeDrawer()" class="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition">
+        <i class="ph-bold ph-x text-lg"></i>
+      </button>
+    </div>
+
+    <!-- Drawer Body -->
+    <div id="drawer-body-content" class="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
+      <!-- Populated via JS -->
+    </div>
+
+    <!-- Drawer Footer -->
+    <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-925 flex items-center justify-between text-xs">
+      <span class="text-slate-500">点击主视图中的任意阶段卡片或拓扑节点可直接切换</span>
+      <button onclick="closeDrawer()" class="px-4 py-1.5 rounded-lg font-semibold bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700 transition">
+        关闭面板
+      </button>
+    </div>
+  </aside>
+
+  <!-- ======================= TOAST NOTIFICATION ======================= -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold shadow-lg transform translate-y-16 opacity-0 transition-all duration-300 flex items-center gap-2 pointer-events-none">
+    <i class="ph-bold ph-check-circle text-base"></i>
+    <span id="toast-msg">已复制到剪贴板</span>
+  </div>
+
+  <!-- ======================= APPLICATION DATA & LOGIC ======================= -->
+  <script>
+    // =========================================================================
+    // 1. STRUCTURED CANONICAL DATASET + VENDOR CUSTOM PIPELINE TOPOLOGIES
+    // =========================================================================
+    const ATLAS_DATA = {
+      version: "2026.11-bright",
+      canonical_stages: [
+        {
+          id: "stage_0",
+          code: "Stage 0",
+          title: "Late Mid-Training",
+          subtitle: "后训练前置 / 退火注入",
+          desc: "在进入正式 SFT 前，将长思维链、代码仓库 PR Diff、Agent 轨迹放到大上下文退火阶段注入，防止过长 SFT 损害后续 RL 探索可塑性。"
+        },
+        {
+          id: "stage_1",
+          code: "Stage 1",
+          title: "Cold-Start & SFT",
+          subtitle: "冷启动与专家轨迹微调",
+          desc: "激发 Thinking/Non-thinking 双模式格式、注入专家拒绝采样轨迹，以及通过 Error Masking 保留错误上下文恢复能力。"
+        },
+        {
+          id: "stage_2",
+          code: "Stage 2",
+          title: "Verifiable RL (RLVR)",
+          subtitle: "强验证器强化学习 (Math/Code/SWE)",
+          desc: "基于确定性规则、单元测试与多语言 Docker 沙盒的强化学习，重点解决 MoE 训推偏移、动态难度过滤与沙盒启动延迟。"
+        },
+        {
+          id: "stage_3",
+          code: "Stage 3",
+          title: "Agentic & Rubric RL",
+          subtitle: "长程工具交互与细粒度 Rubric RL",
+          desc: "针对多跳搜索 (Deep Research)、复杂工具调用与指令遵循，使用仅必要 Rubric、自博弈 GRM 或 Groupwise 排序打分抑制刷分。"
+        },
+        {
+          id: "stage_4",
+          code: "Stage 4",
+          title: "Consolidation & OPD",
+          subtitle: "跨阶段 / 多专家在线策略蒸馏",
+          desc: "通过 On-Policy Distillation (OPD) 将垂直领域专家或前序各阶段最优 Checkpoint 无损融合，消除多阶段串行遗忘与梯度冲突。"
+        },
+        {
+          id: "stage_5",
+          code: "Stage 5",
+          title: "General RLHF & Efficiency",
+          subtitle: "通用偏好对齐与 Token 效率控制",
+          desc: "开放域人类偏好对齐、安全防护，以及抑制推理模型过度思考 (Overthinking) 的思维链压缩与中断恢复偏见修正。"
+        }
+      ],
+
+      problems: [
+        {
+          id: "moe_off_policy",
+          name: "MoE 训推偏移与路由崩溃",
+          en: "MoE Off-policy & Router Collapse",
+          color: "sky",
+          symptom: "100B+ 稀疏 MoE 在异步 Rollout 时，推理引擎 (SGLang/vLLM) 与训练引擎 (Megatron/FSDP) 的专家路由激活不一致，加上 bfloat16/FP4 精度差异与分词重编码边界漂移，导致长程 RL 梯度爆炸或路由器坍塌。",
+          key_takeaway: "2026 主流解法分为三层：采样层强制 Token-in/Token-out 避免重分词；路由层采用 Routing Replay (R3) 或直接冻结 Router 权重 (Router Freezing)；精度层在后训练直接引入 MXFP4/NVFP4 量化感知训练 (QAT)。"
+        },
+        {
+          id: "reward_hacking",
+          name: "奖励黑客与长度膨胀偏见",
+          en: "Reward Hacking & Length Bias",
+          color: "rose",
+          symptom: "模型在指令遵循或开放域 RL 中通过堆砌废话、迎合可选加分项、或者利用异步抢占恢复机制（短回复更容易在节点中断前完成并进入训练集）引发严重的回复长度失控与刷分。",
+          key_takeaway: "1) 按抗 Hack 难度严格串行排序（最易被 Hack 的通用 RLHF 放最后）；2) 砍掉 Optional Rubrics，仅保留 Essential Rubrics；3) 训练基于 Rubric 自博弈的 GRM 或采用 Groupwise 组内对比排序；4) Rollout 引入 Token 级 WAL 断点续写消除短回复幸存者偏见。"
+        },
+        {
+          id: "forgetting_conflict",
+          name: "多阶段遗忘与多任务梯度冲突",
+          en: "Catastrophic Forgetting & Gradient Conflict",
+          color: "purple",
+          symptom: "Math/Code 强推理 RL 与通用对话/Agent 任务混合训练时出现跷跷板效应；或者过重的 SFT 锁死模型分布，导致后续 RL 探索空间丧失（可塑性下降）。",
+          key_takeaway: "两条主流路线：一是 Nemotron 3.5 将重度 SWE/Agent 轨迹前移至 Late Mid-Training，保持 SFT 轻量；二是 DeepSeek-V4 / GLM-5 采用“独立训练垂域专家 + 最终阶段 Unified On-Policy Distillation (OPD)”完全替代单模型长链条串行微调。"
+        },
+        {
+          id: "curriculum_efficiency",
+          name: "样本效率与动态课程过滤",
+          en: "Sample Efficiency & Dynamic Filtering",
+          color: "amber",
+          symptom: "在 GRPO 等组相对策略优化中，全对 (Pass rate = 1) 或全错 (Pass rate = 0) 的 Prompt 会产生全零优势梯度，浪费大量 100B+ 模型昂贵的 Rollout 算力。",
+          key_takeaway: "离线与在线双重难度过滤成为标配（例如 Rufus-Air 严格剔除成功率 > 0.8 或 == 0 的样本），确保每个训练 Step 的计算量全部集中在模型当前能力的“最近发展区”。"
+        },
+        {
+          id: "env_synthesis",
+          name: "真实代码与长程 Agent 沙盒合成",
+          en: "Scalable SWE & Agent Env Synthesis",
+          color: "emerald",
+          symptom: "Python 之外的多语言真实代码仓库编译依赖极其脆弱，手工构建可验证 Docker 环境成本过高；同时沙盒容器冷启动延迟严重拖慢 RL Rollout 吞吐。",
+          key_takeaway: "MiniMax-M2.5 用 Agent 循环根据报错自动修复构建脚本，合成 20 万+ 覆盖 10 余种语言的真实容器环境；INTELLECT-3.1 则将模型首轮 CoT 思考时间与沙盒预热 (Sandbox Provisioning) 在时间轴上重叠以隐藏环境延迟。"
+        },
+        {
+          id: "overthinking_latency",
+          name: "思维链冗余与推理延迟控制",
+          en: "Overthinking & Token Efficiency",
+          color: "indigo",
+          symptom: "长思维链 RL 训练出的百亿/千亿模型在简单任务或高频工具调用中也生成数千 Token 的冗余思考，导致生产环境延迟与显存开销不可接受。",
+          key_takeaway: "在 Agent RL 中引入轮数与 Token 效率联合评分（如 MiMo-V2.6 Groupwise Grading、MiniMax Forge RL 倡导 Spec-first 规划，以及 Fireworks Ember-1 的靶向 CoT 压缩 RL），在不掉点的前提下削减 20%~40% 消耗。"
+        }
+      ],
+
+      recipes: [
+        {
+          id: "rufus-air-106b",
+          name: "Rufus-Air",
+          org: "Amazon",
+          date: "2026.09",
+          params_total: "106B",
+          params_active: "12B",
+          base_model: "GLM-4.5-Air-Base",
+          paradigm_type: "serial",
+          paradigm_label: "8-Stage Anti-Hacking Serial Pipeline",
+          openness: "Full Recipe + Open Data + Slime/SGLang Infra",
+          source_link: "https://arxiv.org/abs/2609.29421",
+          source_label: "arXiv:2609.29421",
+          infra_stack: "Slime + SGLang (Token-in/Token-out + R3 Routing Replay)",
+          topology_summary: "严格按“验证器抗 Hack 能力从强到弱”排列的 8 阶段单链条串行推进架构（SFT → Math RL → Code RL → Essential-Rubric IF RL → 3 阶段递进式 Agent RL → 末置开放域 RLHF），底部由 Slime + SGLang 路由重放总线全程托底。",
+          stages: {
+            stage_0: {
+              status: "skipped",
+              headline: "直接从 GLM-4.5-Air-Base 启动",
+              summary: "未单独划分 Mid-training 阶段，直接利用开源的 GLM-4.5-Air-Base 基座进入双模式 SFT 冷启动。",
+              methods: ["直接复用预训练基座分布，将算力集中在后续 8 个串行后训练阶段"],
+              data_And_filtering: "无独立退火数据",
+              infra_notes: "基座检查点转换至 Slime 训练格式",
+              problems_solved: []
+            },
+            stage_1: {
+              status: "core",
+              headline: "Thinking / Non-Thinking 双模式混合冷启动",
+              summary: "第一阶段 SFT 专注于确立推理与非推理双模式切换格式，并为后续 7 个 RL 阶段提供稳定的初始策略分布。",
+              methods: [
+                "混合长思维链 (Thinking) 与直接回答 (Non-thinking) 样本进行统一冷启动",
+                "严格控制 SFT 训练轮数，防止过拟合损害后续多阶段 RL 的探索空间"
+              ],
+              data_And_filtering: "全开源 SFT 混合指令集，剔除格式截断与低质量合成轨迹",
+              infra_notes: "基于 Slime 框架进行高效序列打包 (Sequence Packing)",
+              problems_solved: ["forgetting_conflict"]
+            },
+            stage_2: {
+              status: "core",
+              headline: "串行 Reasoning RL → Coding RL (CISPO + R3 路由重放)",
+              summary: "按验证器确定性从高到低依次执行数学推理 RL 与代码生成 RL，严格保障 MoE 训推一致性与样本难度处于最近发展区。",
+              methods: [
+                "采用 CISPO（带截断重要性采样权重的 GRPO 变体）稳定多步策略更新",
+                "引入 R3 (Rollout Routing Replay)：在训练前向传播时重放 SGLang 推理采样时的专家路由选择",
+                "全程启用 Token-in / Token-out Rollout，避免文本解码再分词导致的 Token 边界漂移"
+              ],
+              data_And_filtering: "动态难度过滤：离线+在线筛除成功率 > 0.8（太简单）或 == 0（完全不会）的样本",
+              infra_notes: "Slime + SGLang 异步推训协同，彻底解决 106B MoE 的 Off-policy 崩溃",
+              problems_solved: ["moe_off_policy", "curriculum_efficiency"]
+            },
+            stage_3: {
+              status: "core",
+              headline: "仅必要 Rubric IF RL → 三阶段渐进式 Agent RL",
+              summary: "完成硬验证器 RL 后，依次推进指令遵循 (IF RL) 与三个递进阶段的 Agent RL（单轮工具 → 多轮工具 → Deep Research 网页搜索）。",
+              methods: [
+                "IF RL 防长度 Hack 关键设计：砍掉所有 Optional Rubrics（可选加分项），仅对 Essential Rubrics（必要条件）给正奖励，彻底消除模型靠写长文撞加分项的动机",
+                "三阶段 Agent 课程：Stage 5 单轮工具格式 → Stage 6 多轮环境交互 → Stage 7 长程多跳 Deep Research 检索"
+              ],
+              data_And_filtering: "开源 Rubric 验证规则与多阶段合成工具轨迹",
+              infra_notes: "支持工具沙盒并发调用与多轮上下文 Token 拼接对齐",
+              problems_solved: ["reward_hacking", "env_synthesis"]
+            },
+            stage_4: {
+              status: "skipped",
+              headline: "不采用跨阶段蒸馏，依靠抗 Hack 串行顺序保能力",
+              summary: "Rufus-Air 没有使用多教师在线蒸馏，而是通过精心设计 8 个阶段的先后顺序与学习率衰减来规避前序能力退化。",
+              methods: ["通过“强确定性验证器在前、易被 Hack 的软奖励在后”的严格串行顺序替代蒸馏"],
+              data_And_filtering: "N/A",
+              infra_notes: "单模型权重一路演进到底，降低存储多专家教师模型的显存开销",
+              problems_solved: []
+            },
+            stage_5: {
+              status: "standard",
+              headline: "末置开放域 RLHF（防止通用 RM 被提前 Hack）",
+              summary: "将开放域人类偏好对齐 (RLHF) 放在全部 8 个阶段的最后一步，因为标量/通用奖励模型最脆弱、最容易被模型钻空子。",
+              methods: [
+                "短周期、小学习率的最终偏好对齐，仅润色文风与有用性，不破坏前序建立的推理与工具能力"
+              ],
+              data_And_filtering: "开源通用偏好对齐数据集",
+              infra_notes: "严格限制 KL 散度偏移与最大训练步数",
+              problems_solved: ["reward_hacking"]
+            }
+          }
+        },
+
+        {
+          id: "deepseek-v4",
+          name: "DeepSeek-V4 (Flash / Pro)",
+          org: "DeepSeek",
+          date: "2026.04 - 08",
+          params_total: "284B (Flash) / 1.6T (Pro)",
+          params_active: "13B / 49B",
+          base_model: "DeepSeek-V4-Base (1M Context)",
+          paradigm_type: "opd",
+          paradigm_label: "Divide-and-Conquer Specialists + Unified OPD",
+          openness: "Open Weights + Deep Infra & Algorithm Technical Report",
+          source_link: "https://github.com/deepseek-ai",
+          source_label: "DeepSeek-V4 Technical Report (2026)",
+          infra_stack: "MXFP4 Post-Training QAT + Token-level WAL Resumable Rollout",
+          topology_summary: "典型的“扇出分治 + 扇入统一蒸馏”有向无环图（Fan-out / Fan-in DAG）：先从 Base 分裂出 Math、Coding/SWE、Agent、General (Rubric-GRM) 四个独立专家各自运行高强度 SFT+GRPO，再通过 Unified On-Policy Distillation 一次性汇聚至单一学生模型。",
+          stages: {
+            stage_0: {
+              status: "standard",
+              headline: "1M 超长上下文扩展与高密度推理退火",
+              summary: "在进入后训练前完成百万级上下文窗口扩展与数学/代码高密度语料退火。",
+              methods: ["高效稀疏注意力与长序列退火"],
+              data_And_filtering: "长文档、代码仓库与合成长思维链语料",
+              infra_notes: "1M Context 极低显存开销架构",
+              problems_solved: []
+            },
+            stage_1: {
+              status: "core",
+              headline: "分治策略：按垂直领域独立训练专项 SFT 专家",
+              summary: "不追求在单一 SFT 模型上塞入所有混合数据，而是为数学、代码、Agent、通用对话分别准备纯粹的高质量冷启动专家。",
+              methods: [
+                "每个垂直专家仅使用该领域最高质量的轨迹做冷启动，彻底避免跨领域数据相互稀释"
+              ],
+              data_And_filtering: "分领域精选专家冷启动轨迹",
+              infra_notes: "多专家并行冷启动流水线",
+              problems_solved: ["forgetting_conflict"]
+            },
+            stage_2: {
+              status: "core",
+              headline: "各领域专家独立 GRPO + MXFP4 QAT + WAL 断点续写",
+              summary: "每个垂域专家独立运行高强度 GRPO。报告披露了两项极具启发性的底层 Infra 创新以消除隐蔽的训练偏差：",
+              methods: [
+                "后训练阶段直接引入 MXFP4 量化感知训练 (QAT)：消除高精训练与 FP4 线上推理之间的数值分布偏移",
+                "基于 Token 级预写日志 (WAL) 的可抢占 Rollout：当长序列采样因负载均衡被中断时，恢复后从已生成的最后一个 Token 续写而非重头生成——彻底消除了“短回复更容易在故障前跑完并进入训练集”带来的隐式短回复长度偏见 (Length Bias)！"
+              ],
+              data_And_filtering: "各垂直领域高难度可验证强化学习题库",
+              infra_notes: "MXFP4 原生算子 + Token-level WAL 容错采样器",
+              problems_solved: ["moe_off_policy", "reward_hacking"]
+            },
+            stage_3: {
+              status: "core",
+              headline: "基于细粒度 Rubric 自博弈的生成式奖励模型 (Rubric-guided GRM)",
+              summary: "针对非确定性任务与复杂 Agent 任务，摒弃传统标量 RM，构建专门的 Rubric RL 数据来训练自评估生成式奖励模型 (GRM)。",
+              methods: [
+                "让 GRM 先根据题目动态生成或遵循细粒度评分准则 (Rubrics)，再通过强化学习训练 GRM 自身的判分准确性",
+                "大幅提升开放域、复杂指令与长程任务上的抗 Reward Hacking 能力"
+              ],
+              data_And_filtering: "专门构造的 Rubric-based RL 评判训练集",
+              infra_notes: "大参数量生成式 Judge 在线并发推理",
+              problems_solved: ["reward_hacking"]
+            },
+            stage_4: {
+              status: "core",
+              headline: "Unified On-Policy Distillation（多领域专家统一在线蒸馏）",
+              summary: "整个后训练配方的收口核心：将数学、代码、Agent、通用等独立强化到极致的专家模型，通过统一在线蒸馏无损合并进单一学生模型。",
+              methods: [
+                "学生模型在各个领域的 Prompt 上自行采样生成轨迹 (On-policy rollout)，并由对应领域的专家教师模型提供 Token 级分布监督",
+                "完美实现“各领域性能不妥协 + 单一模型全能输出”"
+              ],
+              data_And_filtering: "全领域均衡采样的在线策略蒸馏提示集",
+              infra_notes: "分布式多教师路由蒸馏框架",
+              problems_solved: ["forgetting_conflict"]
+            },
+            stage_5: {
+              status: "standard",
+              headline: "蒸馏后轻量级 RL 润色与思维链效率对齐",
+              summary: "在统一在线蒸馏完成后，进行极小步数的全局 RL 润色，对齐输出风格并压缩冗余推理步骤。",
+              methods: ["轻量级全局对齐与 Token 预算控制"],
+              data_And_filtering: "高优人类偏好与简洁推理样本",
+              infra_notes: "端到端 MXFP4 一致性校验",
+              problems_solved: ["overthinking_latency"]
+            }
+          }
+        },
+
+        {
+          id: "glm-5-744b",
+          name: "GLM-5 / 5.2",
+          org: "Z.ai (智谱)",
+          date: "2026.02 - 06",
+          params_total: "744B",
+          params_active: "40B",
+          base_model: "GLM-5-Base",
+          paradigm_type: "opd",
+          paradigm_label: "Error-Masked SFT + Multi-Domain RL + Cross-Stage OPD",
+          openness: "Open Weights + Detailed Report + Open-source `slime` Framework",
+          source_link: "https://arxiv.org/abs/2602.15763",
+          source_label: "arXiv:2602.15763 & slime Blog",
+          infra_stack: "slime + vime (PD-Disaggregated Rollout + Delta Weight Sync)",
+          topology_summary: "采用“带错误掩码 (Error Masking) 的专家轨迹 SFT → 四大域二元奖励混合 RL → 跨阶段在线策略蒸馏 (Cross-Stage OPD)”的回流收口拓扑，将各历史阶段的最优 Checkpoint 重新蒸馏回终版模型。",
+          stages: {
+            stage_0: {
+              status: "standard",
+              headline: "长上下文与仓库级工程代码退火",
+              summary: "在预训练末期针对 Agentic Engineering（从 Vibe Coding 走向工程级 Agent）进行长上下文与代码仓库退火。",
+              methods: ["扩展长程依赖与真实软件工程仓库上下文表征"],
+              data_And_filtering: "高质量仓库级代码与长文档",
+              infra_notes: "大规模 MoE 高效长序列并行",
+              problems_solved: []
+            },
+            stage_1: {
+              status: "core",
+              headline: "专家轨迹拒绝采样 + 轨迹错误掩码 (Error Masking in SFT)",
+              summary: "通过前代专家 RL 与拒绝采样收集真实环境交互轨迹。核心技巧：保留轨迹中的错误尝试步骤，但将其交叉熵 Loss 掩码掉！",
+              methods: [
+                "Error Masking 机制：如果直接删掉轨迹中的失败命令，模型在线上遇到报错就会不知所措；如果对失败命令算 Loss，模型又会学出错误动作。保留错误上下文但 Mask 掉错误动作 Loss，让模型完美学会 Error Recovery（从报错中恢复）"
+              ],
+              data_And_filtering: "多领域专家 RL 采样并经沙盒验证通过的完整交互轨迹",
+              infra_notes: "细粒度 Token 级 Loss Mask 控制",
+              problems_solved: ["forgetting_conflict", "env_synthesis"]
+            },
+            stage_2: {
+              status: "core",
+              headline: "基于 `slime` 的多域二元结果奖励 RL（PD 分离异步采样）",
+              summary: "在推理、代码等域上配置真实执行环境生成二元结果奖励 (Binary Outcome Rewards)，底层由开源的 `slime` 框架驱动。",
+              methods: [
+                "Prefill-Decode (PD) 分离式异步 Rollout，解决长思维链生成时尾部长序列阻塞 GPU 的问题",
+                "Delta Weight Sync（增量权重同步）：训练节点与推理节点之间高速同步参数更新"
+              ],
+              data_And_filtering: "根据前代模型通过率动态筛选中等偏难的推理与代码题目",
+              infra_notes: "开源 `THUDM/slime` 框架（亦被 Amazon Rufus-Air 采纳）",
+              problems_solved: ["moe_off_policy", "curriculum_efficiency"]
+            },
+            stage_3: {
+              status: "core",
+              headline: "专项 Agentic Engineering 环境与专用 Judge 模型 RL",
+              summary: "针对前端构建、全栈项目开发与长程工具链交互，结合真实沙盒执行结果与专门训练的领域 Judge 模型提供二元反馈。",
+              methods: [
+                "在 General、Reasoning、Coding、Agent 四大域分别配置专属判分器与交互环境"
+              ],
+              data_And_filtering: "真实工程任务与多轮交互指令集",
+              infra_notes: "支持沙盒内文件系统状态持久化与多步反馈",
+              problems_solved: ["reward_hacking", "env_synthesis"]
+            },
+            stage_4: {
+              status: "core",
+              headline: "跨阶段在线策略蒸馏 (Cross-Stage On-Policy Distillation)",
+              summary: "为了彻底解决多阶段后训练常见的能力退化 (Capability Regression)，使用跨阶段 OPD 将前序各个阶段的专项最高水平无损合并。",
+              methods: [
+                "以当前学生模型自生成的 Rollout 为载体，同时对齐前序各专项阶段 Checkpoint 的分布",
+                "还可结合 Hindsight Hints（事后提示在线蒸馏），将带提示词的教师分布蒸馏给不带提示词的学生"
+              ],
+              data_And_filtering: "覆盖全部四个核心领域的在线采样序列",
+              infra_notes: "slime / vime 原生支持多教师在线 Logits 蒸馏",
+              problems_solved: ["forgetting_conflict"]
+            },
+            stage_5: {
+              status: "standard",
+              headline: "通用人类偏好对齐与交互效率微调",
+              summary: "在跨阶段蒸馏收口后进行轻量级通用对齐，确保长程工程交互中的指令遵循与回复精炼度。",
+              methods: ["通用偏好对齐与格式规范化"],
+              data_And_filtering: "高质量人类偏好数据集",
+              infra_notes: "标准 RLHF 后处理",
+              problems_solved: ["overthinking_latency"]
+            }
+          }
+        },
+
+        {
+          id: "nemotron-3.5-super",
+          name: "Nemotron 3.5 Super",
+          org: "NVIDIA",
+          date: "2026.04 - 10",
+          params_total: "120B (Ultra: 550B)",
+          params_active: "12B",
+          base_model: "Nemotron-3/3.5 Hybrid Mamba2-MoE",
+          paradigm_type: "opd",
+          paradigm_label: "Agentic Mid-Training + Async GRPO + Multi-Teacher OPD",
+          openness: "Full Weights + 153 Open Datasets + NeMo RL & NeMo Gym",
+          source_link: "https://arxiv.org/abs/2610.38095",
+          source_label: "arXiv:2610.38095 / 2610.22019",
+          infra_stack: "NeMo RL + NeMo Gym (NVFP4 Support + Native MTP)",
+          topology_summary: "核心特征是“重度前置 Agentic SWE Mid-Training + 极轻量 SFT + NeMo Gym 五大环境并行异步 GRPO + 跨领域多教师蒸馏与原生 MTP 投机解码头联合训练”。",
+          stages: {
+            stage_0: {
+              status: "core",
+              headline: "Agentic SWE Mid-Training（重度代码/Agent轨迹前移）",
+              summary: "配套论文 (arXiv:2610.22019) 核心发现：过长的 SFT 会严重损害后续 RL 的可塑性 (Plasticity)。因此将海量代码库、PR Diff 和 SWE Agent 轨迹前移至 Late Mid-training。",
+              methods: [
+                "在预训练尾声的退火阶段混入高比例软件工程 (SWE) 交互轨迹与长推理合成数据",
+                "让基座原生具备代码定位与工具规划先验，从而大幅减轻 Stage 1 SFT 的负担"
+              ],
+              data_And_filtering: "大规模 GitHub 真实提交历史、Issue-PR 配对与合成 SWE 轨迹",
+              infra_notes: "Mamba2-Transformer 混合架构长上下文高效吞吐",
+              problems_solved: ["forgetting_conflict"]
+            },
+            stage_1: {
+              status: "standard",
+              headline: "轻量级靶向 SFT（保护下游 RL 探索空间）",
+              summary: "得益于 Stage 0 的充分铺垫，SFT 阶段保持克制，仅做格式对齐与基础多领域指令激发。",
+              methods: [
+                "避免在 SFT 阶段过度拟合单一轨迹分布，最大化保留策略熵供后续 GRPO 探索"
+              ],
+              data_And_filtering: "`Nemotron-Post-Training-v3` 开源 SFT 子集",
+              infra_notes: "NeMo Aligner / NeMo RL 标准管线",
+              problems_solved: ["forgetting_conflict"]
+            },
+            stage_2: {
+              status: "core",
+              headline: "NeMo Gym 多环境解耦异步 GRPO + NVFP4 训练",
+              summary: "在数学、代码、科学等可验证环境上运行完全解耦训练与推理的异步 GRPO。",
+              methods: [
+                "Generation 与 Training 完全解耦，支持跨节点弹性扩展验证器容器",
+                "引入低精度 NVFP4 协同优化，确保训练态与高效部署态数值一致"
+              ],
+              data_And_filtering: "开源 153 个后训练子数据集 (`Nemotron-Post-Training-v3`)",
+              infra_notes: "开源 `NeMo Gym` 提供标准化沙盒环境接口",
+              problems_solved: ["moe_off_policy", "curriculum_efficiency"]
+            },
+            stage_3: {
+              status: "core",
+              headline: "多步工具调用与对话式 Rubric 强化学习",
+              summary: "在 NeMo Gym 中同时挂载多轮函数调用环境与细粒度指令遵循评分环境。",
+              methods: [
+                "针对复杂多轮交互任务实施轨迹级验证与 Rubric 约束奖励"
+              ],
+              data_And_filtering: "开源 Tool-use 与 Multi-turn 对话 RL 数据集",
+              infra_notes: "NeMo Gym 异步多环境并发调度",
+              problems_solved: ["env_synthesis"]
+            },
+            stage_4: {
+              status: "core",
+              headline: "跨领域多教师在线蒸馏 (OPD) + 原生 MTP 头训练",
+              summary: "在 Nemotron 3.5 中引入跨领域教师的 On-Policy Distillation，并联合训练原生多 Token 预测 (MTP) 头以加速投机解码。",
+              methods: [
+                "让学生模型在自生成轨迹上对齐多个领域专家教师模型的 Token 级 Logits 分布",
+                "同步训练 Native Speculative Decoding (MTP) 模块，兼顾顶尖推理精度与极低线上延迟"
+              ],
+              data_And_filtering: "多领域混合自采样 Rollout 数据",
+              infra_notes: "支持 FP8 / NVFP4 高速在线教师推理蒸馏",
+              problems_solved: ["forgetting_conflict", "overthinking_latency"]
+            },
+            stage_5: {
+              status: "standard",
+              headline: "基于 Nemotron-RLHF-GenRM 的生成式奖励对齐",
+              summary: "最后阶段利用生成式奖励模型 (`Nemotron-RLHF-GenRM`) 完成人类偏好、安全性与对话自然度对齐。",
+              methods: [
+                "用 Generative RM 替代传统标量 RM，输出推理判据后再给出奖励分"
+              ],
+              data_And_filtering: "开源偏好对比与红队安全数据集",
+              infra_notes: "NeMo RL GenRM 闭环评估",
+              problems_solved: ["reward_hacking"]
+            }
+          }
+        },
+
+        {
+          id: "intellect-3.1-106b",
+          name: "INTELLECT-3.1",
+          org: "Prime Intellect",
+          date: "2026.02 - 05",
+          params_total: "106B",
+          params_active: "12B",
+          base_model: "GLM-4.5-Air-Base",
+          paradigm_type: "async_rl",
+          paradigm_label: "SFT + Massively Parallel Multi-Env Async RLVR",
+          openness: "Full Weights + 6.98M SFT & 70K RL Data + prime-rl + Environments Hub",
+          source_link: "https://huggingface.co/PrimeIntellect",
+          source_label: "Prime Intellect Tech Report & HF",
+          infra_stack: "prime-rl + verifiers + Environments Hub (500+ Envs)",
+          topology_summary: "中心辐射式（Hub-and-Spoke）异步强化架构：基于与 Rufus-Air 相同的 106B 基座，在 698 万条 SFT 后直接进入单一的大规模 `prime-rl` 异步循环，同时挂载 Math、Code、Science、Deep Research 与 SWE 500+ 环境，并将首轮思考与容器拉起在时间上重叠。",
+          stages: {
+            stage_0: {
+              status: "skipped",
+              headline: "直接基于 GLM-4.5-Air-Base 启动",
+              summary: "与 Rufus-Air 使用完全相同的 106B/A12B 基座，是研究同基座不同后训练流派的最佳对照组。",
+              methods: ["基座模型直接进入大规模 SFT 阶段"],
+              data_And_filtering: "N/A",
+              infra_notes: "适配 prime-rl 分布式拓扑",
+              problems_solved: []
+            },
+            stage_1: {
+              status: "core",
+              headline: "698 万条高密度推理与 Agent 轨迹 SFT",
+              summary: "相比 Rufus-Air 的轻量冷启动，INTELLECT-3 系列在 SFT 阶段注入了规模庞大的高质量蒸馏推理与工具轨迹 (`INTELLECT-3-SFT`)。",
+              methods: [
+                "覆盖数学、代码、科学推理与多步 Agent 交互的大规模多任务混合 SFT"
+              ],
+              data_And_filtering: "完全开源 6.98M SFT 样本，经过去重与去污染清洗",
+              infra_notes: "高吞吐分布式 SFT 训练管线",
+              problems_solved: ["forgetting_conflict"]
+            },
+            stage_2: {
+              status: "core",
+              headline: "多环境大规模异步 RLVR + 沙盒预热重叠",
+              summary: "不将 Math、Code、SWE 拆成独立串行阶段，而是在统一的大规模异步 RL 循环中同时跨多个验证器环境强化学习。",
+              methods: [
+                "异步 Actor-Learner 解耦架构，容忍一定步数内的 Off-policy 权重延迟以换取极高集群利用率",
+                "隐藏沙盒延迟技巧：当模型生成第一轮长 CoT 思考时，后台并发启动并预热对应的代码执行沙盒 (Overlapped Sandbox Provisioning)"
+              ],
+              data_And_filtering: "开源 `INTELLECT-3-RL`（70,000+ 经过难度校准的高质量可验证题目，2026.05 更新）",
+              infra_notes: "开源 `prime-rl` 与 `verifiers` 库，支持高并发容器沙盒调度",
+              problems_solved: ["env_synthesis", "curriculum_efficiency"]
+            },
+            stage_3: {
+              status: "core",
+              headline: "Environments Hub 统一长程 Agent 与 Deep Research RL",
+              summary: "将 Deep Research、SWE 问题修复与工具调用全部封装为标准化的 `verifiers` 环境，与基础推理任务并列训练。",
+              methods: [
+                "通过社区共享的 500+ 标准化 RL 环境实现多跳检索与复杂工具链强化"
+              ],
+              data_And_filtering: "Environments Hub 开源任务集与评分器",
+              infra_notes: "支持长周期异步 Rollout 收集与轨迹级奖励回传",
+              problems_solved: ["env_synthesis"]
+            },
+            stage_4: {
+              status: "skipped",
+              headline: "无独立蒸馏阶段（单循环多环境联合收敛）",
+              summary: "由于所有环境在同一异步 RL 阶段联合训练，无需额外的跨阶段合并蒸馏。",
+              methods: ["依靠多环境混合采样比例调节各领域能力平衡"],
+              data_And_filtering: "N/A",
+              infra_notes: "N/A",
+              problems_solved: []
+            },
+            stage_5: {
+              status: "standard",
+              headline: "指令遵循验证器与通用质量对齐",
+              summary: "将指令约束校验作为一类验证器并入异步 RL 流程，保持通用对话可用性。",
+              methods: ["混合规则验证器与 LLM Judge 奖励信号"],
+              data_And_filtering: "开源通用指令校验集",
+              infra_notes: "集成在 `verifiers` 评判管线中",
+              problems_solved: ["reward_hacking"]
+            }
+          }
+        },
+
+        {
+          id: "mimo-v2.6",
+          name: "MiMo-V2.6 (Flash / Pro)",
+          org: "Xiaomi (小米)",
+          date: "2026.10",
+          params_total: "310B (Flash) / 1.02T (Pro)",
+          params_active: "15B / 42B",
+          base_model: "MiMo-V2.6-Base (1M Context)",
+          paradigm_type: "async_rl",
+          paradigm_label: "Ultra-Large Batch Async RL + Groupwise Agentic Grading",
+          openness: "Open Weights + Full Open-Source RL Dev Suite (Envs + Harnesses)",
+          source_link: "https://arxiv.org/abs/2610.11959",
+          source_label: "arXiv:2610.11959",
+          infra_stack: "2.7B-3.7B Tokens/Step Async RL + MoE Router Freezing",
+          topology_summary: "以“冻结 MoE 路由器 (Router Freezing) + 每步 2.7B~3.7B Tokens 超大 Batch 异步强化”为主干，连接 Coding、Office、Visual、Cybersecurity 四大可组合 Mini-harnesses，并由 Groupwise Agentic Grader 同时对正确率、方案优雅度与 Token 效率进行组内排序。",
+          stages: {
+            stage_0: {
+              status: "standard",
+              headline: "1M 上下文窗口退火与长序列基座对齐",
+              summary: "构建支持 1M 上下文窗口的 310B 与 1.02T 稀疏 MoE 基座，为超长跨度 Agent 轨迹打底。",
+              methods: ["长窗口位置编码扩展与长文退火"],
+              data_And_filtering: "百万级上下文代码与长文档语料",
+              infra_notes: "长序列分布式并行",
+              problems_solved: []
+            },
+            stage_1: {
+              status: "standard",
+              headline: "多域 Agent 轨迹与推理冷启动",
+              summary: "注入覆盖代码开发、通用办公工作流、视觉生成与网络安全四大领域的初始交互轨迹。",
+              methods: ["多领域标准工具调用协议对齐"],
+              data_And_filtering: "经过执行验证的多域冷启动轨迹",
+              infra_notes: "统一 Mini-harness 交互接口格式",
+              problems_solved: []
+            },
+            stage_2: {
+              status: "core",
+              headline: "每步 2.7B–3.7B Tokens 超大 Batch 异步 RL + 冻结路由器 (Router Freezing)",
+              summary: "将异步 RL 推向极致的批处理规模（单步高达 37 亿 Tokens），并公开了保持万亿级 MoE 长程 RL 不崩溃的核心工程技巧：",
+              methods: [
+                "MoE Router Freezing：在大规模 RL 阶段直接冻结各层 MoE 路由器 (Router) 的权重，防止策略分布快速迁移时引发专家负载失衡与路由崩溃",
+                "超高吞吐异步经验池收集，支持长达数万 Token 的多步环境交互"
+              ],
+              data_And_filtering: "开源经过严格验证器清洗的 RL 题库与环境套件",
+              infra_notes: "开源端到端异步 RL 训练框架与环境管理套件",
+              problems_solved: ["moe_off_policy", "curriculum_efficiency"]
+            },
+            stage_3: {
+              status: "core",
+              headline: "Groupwise Agentic Grading（组内对比质量与效率联合评分）",
+              summary: "针对复杂 Agent 任务如果只给二元 (0/1) 结果奖励会导致轨迹极其冗长、丑陋的问题，提出组内对比评分机制：",
+              methods: [
+                "将同一个任务的多个 Rollout 轨迹放在一起由 Grader 进行 Groupwise 对比打分",
+                "不仅区分任务是否成功，还同时根据解决方案的工程优雅度、步骤简洁度与 Token 消耗效率给出细粒度相对奖励",
+                "覆盖 Coding、General Office Workflows、Visual Creation 和 Cybersecurity 四大真实 Agent 场景"
+              ],
+              data_And_filtering: "开源完整 RL 环境与可组合的 Mini-harnesses",
+              infra_notes: "支持沙盒内 GUI/视觉渲染反馈与安全攻防容器隔离",
+              problems_solved: ["reward_hacking", "overthinking_latency", "env_synthesis"]
+            },
+            stage_4: {
+              status: "standard",
+              headline: "自博弈与多阶段检查点融合",
+              summary: "通过自改进 (Self-improvement) 迭代重采样与权重融合巩固各域 Agent 表现。",
+              methods: ["高分简洁轨迹回流与模型融合"],
+              data_And_filtering: "高奖励低 Token 消耗的自生成轨迹",
+              infra_notes: "自动化迭代管线",
+              problems_solved: ["forgetting_conflict"]
+            },
+            stage_5: {
+              status: "standard",
+              headline: "多层级防 Reward Hacking 防线与安全对齐",
+              summary: "针对网络攻防与自主 Agent 场景实施多层次防刷分校验与安全边界强化。",
+              methods: ["多层级规则+模型混合防御机制"],
+              data_And_filtering: "安全红队与边界测试集",
+              infra_notes: "实时异常奖励监控与截断",
+              problems_solved: ["reward_hacking"]
+            }
+          }
+        },
+
+        {
+          id: "minimax-m2.5",
+          name: "MiniMax-M2.5 / M3",
+          org: "MiniMax",
+          date: "2026.02 - 07",
+          params_total: "230B (M2.5) / 428B (M3)",
+          params_active: "9.8B / 23B",
+          base_model: "MiniMax-M2/M3 MoE",
+          paradigm_type: "async_rl",
+          paradigm_label: "200K Automated Multilingual Docker Envs + Forge RL",
+          openness: "Open Weights (M2.5) + Tech Report + Deep Engineering Blogs",
+          source_link: "https://arxiv.org/abs/2605.26494",
+          source_label: "arXiv:2605.26494 & M2.5 Blog",
+          infra_stack: "Forge RL + 200,000+ Multilingual SWE Sandboxes",
+          topology_summary: "独创“双环耦合拓扑”：上环为自动化环境合成管线（Agent 根据编译报错自动修复构建脚本，从 GitHub PR 合成 20 万+ 覆盖 10 余种语言的真实容器）；下环为 Forge RL 训练引擎（按 Bugfix / Feature / Performance 三类任务路由不同奖励信号，并联合优化交互轮数）。",
+          stages: {
+            stage_0: {
+              status: "standard",
+              headline: "10+ 编程语言仓库级上下文退火",
+              summary: "打破开源 SWE 模型只偏科 Python 的局限，在退火阶段重点强化 Go, C++, Rust, TypeScript, Java 等多语言仓库级理解。",
+              methods: ["多语言跨文件依赖图与 PR 演进历史预热"],
+              data_And_filtering: "多语言 GitHub 活跃仓库语料",
+              infra_notes: "极低激活比 (230B/A9.8B) 高吞吐训练",
+              problems_solved: []
+            },
+            stage_1: {
+              status: "core",
+              headline: "架构师式“先写 Spec 规划再编码”冷启动轨迹",
+              summary: "在 SFT 阶段引导模型在动手修改代码或调用搜索工具前，先像人类资深架构师一样制定结构化 Spec 与排查计划。",
+              methods: [
+                "Spec-first Planning：显著减少后续在环境里盲目试错的轮数"
+              ],
+              data_And_filtering: "高效率架构规划与工具交互示范轨迹",
+              infra_notes: "原生适配 Claude Code / OpenCode / Droid 等主流 Agent 脚手架",
+              problems_solved: ["overthinking_latency"]
+            },
+            stage_2: {
+              status: "core",
+              headline: "6 阶段全自动合成 20 万+ 真实 Docker 沙盒 + 任务路由奖励",
+              summary: "在技术报告中完整公开了如何解决多语言 GitHub PR 环境难以自动编译构建的痛点：",
+              methods: [
+                "6 阶段 SWE 环境合成管线：利用一个专门的 Agent 循环 (Agent-driven execution loop)，根据容器内的编译/依赖报错自动编写并迭代修复 Dockerfile 与构建测试脚本，成功构建超过 200,000 个真实可运行的容器环境",
+                "按任务类型路由奖励 (Task-routed Verifiable Rewards)：将 PR 自动分类为 Bug 修复（提取 Fail-to-Pass + Pass-to-Pass 测试给分）、Feature 新增（提取新增测试点给分）与 Performance 性能优化（在测试通过基础上，直接以运行耗时/吞吐提升幅度作为连续奖励）"
+              ],
+              data_And_filtering: "从数百万真实 GitHub PR 中经过可复现性与防作弊过滤筛出的 200K+ 容器镜像",
+              infra_notes: "超大规模容器集群快速拉起与状态快照回滚",
+              problems_solved: ["env_synthesis", "curriculum_efficiency"]
+            },
+            stage_3: {
+              status: "core",
+              headline: "Forge RL 驱动长程搜索与工具交互效率优化 (-20% 轮数)",
+              summary: "通过自研 Forge RL 框架在 BrowseComp 与 RISE（真实交互搜索评测）上联合优化任务准确率与交互效率。",
+              methods: [
+                "在奖励函数中显式约束无效工具调用与冗余搜索轮次",
+                "实测使模型在保持高准确率的同时，平均搜索轮数减少 20%，端到端任务挂钟耗时 (Wall-clock time) 缩短 37%"
+              ],
+              data_And_filtering: "复杂多跳网页检索与真实办公软件操作环境",
+              infra_notes: "Forge RL 大规模异步环境交互引擎",
+              problems_solved: ["overthinking_latency", "env_synthesis"]
+            },
+            stage_4: {
+              status: "standard",
+              headline: "多领域生产力轨迹融合",
+              summary: "将 SWE 编码、深度搜索与办公文档生成（Word/PPT/Excel 金融建模）能力进行跨任务整合。",
+              methods: ["多专家轨迹混合与回流微调"],
+              data_And_filtering: "高分多任务合成轨迹",
+              infra_notes: "统一多模态与文件操作沙盒",
+              problems_solved: ["forgetting_conflict"]
+            },
+            stage_5: {
+              status: "standard",
+              headline: "真实办公流对齐与极速推理成本优化",
+              summary: "针对高频 Agent 部署场景优化每秒 Token 吞吐与单次任务总 Token 开销。",
+              methods: ["结合 9.8B 极小激活参数与简洁推理对齐，实现每天每并发极低运行成本"],
+              data_And_filtering: "真实生产力场景人类偏好评估集",
+              infra_notes: "高并发低延迟线上推理优化",
+              problems_solved: ["overthinking_latency"]
+            }
+          }
+        }
+      ]
+    };
+
+    // =========================================================================
+    // 2. UI STATE MANAGEMENT & BRIGHT PALETTE MAPPINGS
+    // =========================================================================
+    let currentView = 'swimlane';
+    let activeParadigm = 'all';
+    let activeProblemHighlight = null;
+    let searchQuery = '';
+    let selectedPipelineModel = 'all';
+    let expandedInlineRows = new Set(['rufus-air-106b']); // Default expand Rufus-Air inline pipeline so user immediately sees it!
+
+    const PROBLEM_COLORS = {
+      sky: {
+        bg: 'bg-sky-50 dark:bg-sky-500/15',
+        border: 'border-sky-200 dark:border-sky-500/30',
+        text: 'text-sky-700 dark:text-sky-300',
+        activeBg: 'bg-sky-600 text-white border-sky-600'
+      },
+      rose: {
+        bg: 'bg-rose-50 dark:bg-rose-500/15',
+        border: 'border-rose-200 dark:border-rose-500/30',
+        text: 'text-rose-700 dark:text-rose-300',
+        activeBg: 'bg-rose-600 text-white border-rose-600'
+      },
+      purple: {
+        bg: 'bg-purple-50 dark:bg-purple-500/15',
+        border: 'border-purple-200 dark:border-purple-500/30',
+        text: 'text-purple-700 dark:text-purple-300',
+        activeBg: 'bg-purple-600 text-white border-purple-600'
+      },
+      amber: {
+        bg: 'bg-amber-50 dark:bg-amber-500/15',
+        border: 'border-amber-200 dark:border-amber-500/30',
+        text: 'text-amber-700 dark:text-amber-300',
+        activeBg: 'bg-amber-600 text-white border-amber-600'
+      },
+      emerald: {
+        bg: 'bg-emerald-50 dark:bg-emerald-500/15',
+        border: 'border-emerald-200 dark:border-emerald-500/30',
+        text: 'text-emerald-700 dark:text-emerald-300',
+        activeBg: 'bg-emerald-600 text-white border-emerald-600'
+      },
+      indigo: {
+        bg: 'bg-indigo-50 dark:bg-indigo-500/15',
+        border: 'border-indigo-200 dark:border-indigo-500/30',
+        text: 'text-indigo-700 dark:text-indigo-300',
+        activeBg: 'bg-indigo-600 text-white border-indigo-600'
+      }
+    };
+
+    const PARADIGM_BADGES = {
+      serial: {
+        label: '串行阶段演进 (Serial)',
+        classes: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30'
+      },
+      opd: {
+        label: '分治专家 + 在线蒸馏 (OPD)',
+        classes: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30'
+      },
+      async_rl: {
+        label: '多环境异步 RL (Async RL)',
+        classes: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 border-amber-200 dark:border-amber-500/30'
+      }
+    };
+
+    // =========================================================================
+    // 3. CUSTOM VISUAL PIPELINE DIAGRAM RENDERER FOR EACH OF THE 7 MODELS
+    // =========================================================================
+    function renderVendorPipelineDiagram(recipeId, compactMode = false) {
+      const r = ATLAS_DATA.recipes.find(item => item.id === recipeId);
+      if (!r) return '';
+
+      // 1. AMAZON RUFUS-AIR: 8-Stage Anti-Hack Serial Chain + Slime/SGLang Bus
+      if (recipeId === 'rufus-air-106b') {
+        const steps = [
+          { num: 'Stage 1', title: 'Dual-Mode SFT', sub: 'Thinking + Non-Thinking 冷启动', stageRef: 'stage_1', badge: 'Cold Start', color: 'border-indigo-300 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200' },
+          { num: 'Stage 2', title: 'Reasoning RL', sub: 'Math/Logic · CISPO 算法', stageRef: 'stage_2', badge: 'Hard Verifier', color: 'border-emerald-300 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200' },
+          { num: 'Stage 3', title: 'Coding RL', sub: '代码沙盒单元测试验证', stageRef: 'stage_2', badge: 'Hard Verifier', color: 'border-emerald-300 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200' },
+          { num: 'Stage 4', title: 'IF RL (Rubric)', sub: '仅保留必要 Rubric (防长度膨胀)', stageRef: 'stage_3', badge: 'Anti-Length Hack', color: 'border-sky-300 bg-sky-50/80 dark:bg-sky-950/40 text-sky-900 dark:text-sky-200' },
+          { num: 'Stage 5', title: 'Agent RL - I', sub: '单轮工具调用与格式强化', stageRef: 'stage_3', badge: 'Tool Format', color: 'border-amber-300 bg-amber-50/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200' },
+          { num: 'Stage 6', title: 'Agent RL - II', sub: '多轮环境交互与状态追踪', stageRef: 'stage_3', badge: 'Multi-Turn', color: 'border-amber-300 bg-amber-50/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200' },
+          { num: 'Stage 7', title: 'Agent RL - III', sub: '长程多跳 Deep Research 检索', stageRef: 'stage_3', badge: 'Long-Horizon', color: 'border-amber-300 bg-amber-50/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200' },
+          { num: 'Stage 8', title: 'General RLHF', sub: '末置开放域偏好对齐 (防刷分)', stageRef: 'stage_5', badge: 'Soft RM Last', color: 'border-rose-300 bg-rose-50/80 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200' }
+        ];
+
+        return `
+          <div class="p-4 sm:p-5 rounded-2xl border border-indigo-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 bg-dot-grid space-y-3 shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-indigo-600 text-white">Amazon Rufus-Air (106B/A12B)</span>
+                <span class="text-xs font-bold text-slate-800 dark:text-slate-100">8 阶段“抗 Reward Hacking 优先级”单链条串行演进拓扑</span>
+              </div>
+              <span class="text-[11px] text-slate-500 dark:text-slate-400">💡 点击任意阶段节点可打开右侧详细超参与防坑解析</span>
+            </div>
+
+            <!-- 8-Stage Horizontal Serial Chain -->
+            <div class="flex items-stretch gap-1.5 overflow-x-auto pb-2 pt-1">
+              <!-- Base Node -->
+              <div class="px-3 py-2.5 rounded-xl border-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex flex-col justify-center shrink-0 min-w-[125px]">
+                <span class="text-[10px] font-mono uppercase text-slate-500 font-bold">Base Checkpoint</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-0.5">GLM-4.5-Air-Base</div>
+                <span class="text-[10px] font-mono text-slate-500">106B Total / 12B Act</span>
+              </div>
+
+              ${steps.map(st => `
+                <div class="flex items-center shrink-0">
+                  <i class="ph-bold ph-arrow-right text-slate-400 mx-1 text-sm"></i>
+                  <div onclick="openStageDrawer('rufus-air-106b', '${st.stageRef}')" class="pipeline-node cursor-pointer p-2.5 rounded-xl border ${st.color} min-w-[148px] max-w-[165px] flex flex-col justify-between">
+                    <div>
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="text-[10px] font-mono font-bold uppercase opacity-75">${st.num}</span>
+                        <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold bg-white/80 dark:bg-slate-900/80 border border-current/20">${st.badge}</span>
+                      </div>
+                      <div class="font-bold text-xs mt-1">${st.title}</div>
+                      <div class="text-[11px] opacity-85 mt-0.5 leading-snug">${st.sub}</div>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- Bottom Shared Infra Bus -->
+            <div onclick="openStageDrawer('rufus-air-106b', 'stage_2')" class="cursor-pointer p-2.5 rounded-xl bg-gradient-to-r from-indigo-50 via-sky-50 to-emerald-50 dark:from-slate-800 dark:via-slate-850 dark:to-slate-800 border border-indigo-200/80 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div class="flex items-center gap-2 font-semibold text-indigo-900 dark:text-indigo-200">
+                <i class="ph-bold ph-cpu text-indigo-600 text-base"></i>
+                <span>全程共享底层 RL Infra 总线 (Stage 2 ~ Stage 8):</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-2 font-mono text-[11px]">
+                <span class="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-indigo-200 dark:border-slate-700 text-indigo-700 dark:text-indigo-300">Slime + SGLang</span>
+                <span class="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-sky-200 dark:border-slate-700 text-sky-700 dark:text-sky-300">Token-in / Token-out Rollout</span>
+                <span class="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-emerald-200 dark:border-slate-700 text-emerald-700 dark:text-emerald-300">R3 (MoE Routing Replay)</span>
+                <span class="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-amber-200 dark:border-slate-700 text-amber-700 dark:text-amber-300">动态难度过滤: 0 &lt; PassRate &le; 0.8</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // 2. DEEPSEEK-V4: Fan-out Specialists -> Unified On-Policy Distillation (DAG)
+      if (recipeId === 'deepseek-v4') {
+        return `
+          <div class="p-4 sm:p-5 rounded-2xl border border-emerald-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 bg-dot-grid space-y-3 shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-emerald-600 text-white">DeepSeek-V4 (284B/A13B & 1.6T/A49B)</span>
+                <span class="text-xs font-bold text-slate-800 dark:text-slate-100">“分治垂域专家扇出 (Fan-out) → 统一在线策略蒸馏扇入 (Fan-in)” DAG 拓扑</span>
+              </div>
+              <span class="text-[11px] text-slate-500">规避单模型多目标串行训练的梯度冲突与灾难性遗忘</span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center pt-1">
+              <!-- Col 1: Base -->
+              <div onclick="openStageDrawer('deepseek-v4', 'stage_0')" class="lg:col-span-2 pipeline-node cursor-pointer p-3 rounded-xl border-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-center">
+                <span class="text-[10px] font-mono uppercase text-slate-500 font-bold">Stage 0 · Base</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-1">DeepSeek-V4-Base</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">1M 超长上下文退火</div>
+              </div>
+
+              <!-- Col 2: 4 Parallel Specialists -->
+              <div class="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-2 pl-2 border-l-2 border-dashed border-emerald-400">
+                <div onclick="openStageDrawer('deepseek-v4', 'stage_2')" class="pipeline-node cursor-pointer p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 dark:bg-indigo-950/40 dark:border-indigo-800">
+                  <span class="text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-300">Specialist 1 (SFT + GRPO)</span>
+                  <div class="font-bold text-xs text-slate-900 dark:text-white">Math & STEM 推理专家</div>
+                  <div class="text-[11px] text-slate-600 dark:text-slate-400">纯粹高难度可验证题库强化</div>
+                </div>
+                <div onclick="openStageDrawer('deepseek-v4', 'stage_2')" class="pipeline-node cursor-pointer p-2.5 rounded-xl border border-sky-200 bg-sky-50/80 dark:bg-sky-950/40 dark:border-sky-800">
+                  <span class="text-[10px] font-mono font-bold text-sky-600 dark:text-sky-300">Specialist 2 (SFT + GRPO)</span>
+                  <div class="font-bold text-xs text-slate-900 dark:text-white">SWE & Coding 代码专家</div>
+                  <div class="text-[11px] text-slate-600 dark:text-slate-400">仓库级重构与单元测试沙盒</div>
+                </div>
+                <div onclick="openStageDrawer('deepseek-v4', 'stage_3')" class="pipeline-node cursor-pointer p-2.5 rounded-xl border border-amber-200 bg-amber-50/80 dark:bg-amber-950/40 dark:border-amber-800">
+                  <span class="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-300">Specialist 3 (Agent RL)</span>
+                  <div class="font-bold text-xs text-slate-900 dark:text-white">长程 Agent 搜索与工具专家</div>
+                  <div class="text-[11px] text-slate-600 dark:text-slate-400">多跳检索与复杂环境状态交互</div>
+                </div>
+                <div onclick="openStageDrawer('deepseek-v4', 'stage_3')" class="pipeline-node cursor-pointer p-2.5 rounded-xl border border-rose-200 bg-rose-50/80 dark:bg-rose-950/40 dark:border-rose-800">
+                  <span class="text-[10px] font-mono font-bold text-rose-600 dark:text-rose-300">Specialist 4 (Rubric-GRM)</span>
+                  <div class="font-bold text-xs text-slate-900 dark:text-white">自评估 Rubric-GRM 通用专家</div>
+                  <div class="text-[11px] text-slate-600 dark:text-slate-400">细粒度评分标准自博弈强化</div>
+                </div>
+              </div>
+
+              <!-- Col 3: Unified On-Policy Distillation -->
+              <div onclick="openStageDrawer('deepseek-v4', 'stage_4')" class="lg:col-span-3 pipeline-node cursor-pointer p-3.5 rounded-xl border-2 border-emerald-500 bg-emerald-50/90 dark:bg-emerald-950/50 text-emerald-950 dark:text-emerald-100 shadow-xs">
+                <div class="flex items-center justify-between">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-600 text-white">Stage 4 · 核心扇入汇聚</span>
+                  <i class="ph-bold ph-arrows-merge text-lg text-emerald-600"></i>
+                </div>
+                <div class="font-bold text-xs mt-1.5">Unified On-Policy Distillation</div>
+                <p class="text-[11px] opacity-85 mt-0.5 leading-snug">
+                  学生模型在各域自生成轨迹上同步对齐 4 大专家的 Token 级分布，无损融合全能模型
+                </p>
+              </div>
+
+              <!-- Col 4: Final RL Polish -->
+              <div onclick="openStageDrawer('deepseek-v4', 'stage_5')" class="lg:col-span-2 pipeline-node cursor-pointer p-3 rounded-xl border border-purple-300 bg-purple-50/80 dark:bg-purple-950/40 dark:border-purple-800">
+                <span class="text-[10px] font-mono font-bold text-purple-700 dark:text-purple-300">Stage 5 · Polish</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-0.5">全局轻量 RL 与效率对齐</div>
+                <div class="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">输出风格校准与 CoT 长度控制</div>
+              </div>
+            </div>
+
+            <!-- Infra Bar -->
+            <div onclick="openStageDrawer('deepseek-v4', 'stage_2')" class="cursor-pointer p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                <i class="ph-bold ph-shield-check text-emerald-600 text-base"></i>
+                底层消除隐式偏差的两大关键 Infra 机制:
+              </span>
+              <div class="flex flex-wrap items-center gap-2 font-mono text-[11px]">
+                <span class="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-emerald-700 dark:text-emerald-300">MXFP4 QAT (量化感知后训练，消除训推精度偏移)</span>
+                <span class="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-indigo-700 dark:text-indigo-300">Token-level WAL 断点续写采样 (彻底消除故障重采样导致的短回复偏见)</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // 3. Z.AI GLM-5 / 5.2: Error-Masked SFT -> 4-Domain RL -> Cross-Stage OPD
+      if (recipeId === 'glm-5-744b') {
+        return `
+          <div class="p-4 sm:p-5 rounded-2xl border border-sky-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 bg-dot-grid space-y-3 shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-sky-600 text-white">Z.ai GLM-5 / 5.2 (744B/A40B)</span>
+                <span class="text-xs font-bold text-slate-800 dark:text-slate-100">“错误掩码 SFT (Error Masking) → 四域混合 RL → 跨阶段在线策略蒸馏 (Cross-Stage OPD)”拓扑</span>
+              </div>
+              <span class="text-[11px] font-mono text-sky-600">Powered by Open-Source THUDM/slime</span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch pt-1">
+              <div onclick="openStageDrawer('glm-5-744b', 'stage_1')" class="lg:col-span-3 pipeline-node cursor-pointer p-3 rounded-xl border-2 border-indigo-300 bg-indigo-50/70 dark:bg-indigo-950/40 flex flex-col justify-between">
+                <div>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-600 text-white">Stage 1 · 核心防坑设计</span>
+                  <div class="font-bold text-xs text-slate-900 dark:text-white mt-1.5">专家轨迹 SFT + Error Masking</div>
+                  <p class="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                    保留真实交互轨迹中的报错尝试上下文，但<strong>将错误动作 Token 的交叉熵 Loss 置零 (Mask)</strong>，让模型学会从报错中恢复而不模仿错误动作。
+                  </p>
+                </div>
+              </div>
+
+              <div onclick="openStageDrawer('glm-5-744b', 'stage_2')" class="lg:col-span-5 pipeline-node cursor-pointer p-3 rounded-xl border border-sky-300 bg-sky-50/70 dark:bg-sky-950/40 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-mono font-bold uppercase text-sky-700 dark:text-sky-300">Stage 2 & 3 · 4-Domain Binary Outcome RL</span>
+                  <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 border border-sky-200">PD分离 + 增量权重同步</span>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 my-2 text-[11px]">
+                  <div class="p-2 rounded-lg bg-white dark:bg-slate-900 border border-sky-200/70 font-medium">1. Reasoning 规则验证器</div>
+                  <div class="p-2 rounded-lg bg-white dark:bg-slate-900 border border-sky-200/70 font-medium">2. Coding 真实容器沙盒</div>
+                  <div class="p-2 rounded-lg bg-white dark:bg-slate-900 border border-sky-200/70 font-medium">3. Agentic 全栈工程环境</div>
+                  <div class="p-2 rounded-lg bg-white dark:bg-slate-900 border border-sky-200/70 font-medium">4. General 专用二元 Judge</div>
+                </div>
+                <div class="text-[11px] text-slate-500">每个专项阶段产出各自领域的最佳历史 Checkpoint</div>
+              </div>
+
+              <div onclick="openStageDrawer('glm-5-744b', 'stage_4')" class="lg:col-span-4 pipeline-node cursor-pointer p-3 rounded-xl border-2 border-emerald-400 bg-emerald-50/80 dark:bg-emerald-950/40 flex flex-col justify-between">
+                <div>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-600 text-white">Stage 4 · 消除多阶段能力退化</span>
+                  <div class="font-bold text-xs text-slate-900 dark:text-white mt-1.5">Cross-Stage On-Policy Distillation</div>
+                  <p class="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                    将前序 SFT 与各专项 RL 阶段保存的<strong>历史最优 Checkpoints 作为联合教师</strong>，在当前策略自生成序列上进行在线 Logits 蒸馏 + Hindsight Hints 蒸馏。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // 4. NVIDIA NEMOTRON 3.5 SUPER: Heavy SWE Mid-Training -> Lightweight SFT -> NeMo Gym Async GRPO -> OPD + MTP
+      if (recipeId === 'nemotron-3.5-super') {
+        return `
+          <div class="p-4 sm:p-5 rounded-2xl border border-emerald-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 bg-dot-grid space-y-3 shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-emerald-700 text-white">NVIDIA Nemotron 3.5 Super (120B/A12B)</span>
+                <span class="text-xs font-bold text-slate-800 dark:text-slate-100">“前置 Agentic Mid-Training 保可塑性 → NeMo Gym 异步 GRPO → 跨教师蒸馏 + MTP”拓扑</span>
+              </div>
+              <span class="text-[11px] font-mono text-emerald-700 dark:text-emerald-400">开源 153 个后训练数据集 + NeMo Gym</span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch pt-1">
+              <div onclick="openStageDrawer('nemotron-3.5-super', 'stage_0')" class="lg:col-span-3 pipeline-node cursor-pointer p-3 rounded-xl border-2 border-amber-400 bg-amber-50/80 dark:bg-amber-950/40">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-600 text-white">Stage 0 · 关键前置 (arXiv:2610.22019)</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-1.5">Agentic SWE Mid-Training</div>
+                <p class="text-[11px] text-slate-600 dark:text-slate-300 mt-1">
+                  将海量代码仓库、PR Diff 与 SWE Agent 轨迹前移至退火阶段，<strong>避免长 SFT 锁死分布导致下游 RL 可塑性丧失</strong>。
+                </p>
+              </div>
+
+              <div onclick="openStageDrawer('nemotron-3.5-super', 'stage_1')" class="lg:col-span-2 pipeline-node cursor-pointer p-3 rounded-xl border border-slate-300 bg-slate-50 dark:bg-slate-800/80 flex flex-col justify-center">
+                <span class="text-[10px] font-mono font-bold text-slate-500">Stage 1 · 轻量激发</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-1">Lightweight SFT</div>
+                <p class="text-[11px] text-slate-500 mt-0.5">克制训练步数，最大化保留策略探索熵</p>
+              </div>
+
+              <div onclick="openStageDrawer('nemotron-3.5-super', 'stage_2')" class="lg:col-span-3 pipeline-node cursor-pointer p-3 rounded-xl border border-indigo-300 bg-indigo-50/70 dark:bg-indigo-950/40">
+                <span class="text-[10px] font-mono font-bold text-indigo-700 dark:text-indigo-300">Stage 2 & 3 · NeMo Gym</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-1">训推全解耦异步 GRPO (NVFP4)</div>
+                <p class="text-[11px] text-slate-600 dark:text-slate-300 mt-1">
+                  在 Math、Code、STEM、多步 Tool-use 与 Multi-turn Chat 五类环境上并行异步强化。
+                </p>
+              </div>
+
+              <div onclick="openStageDrawer('nemotron-3.5-super', 'stage_4')" class="lg:col-span-2 pipeline-node cursor-pointer p-3 rounded-xl border border-emerald-300 bg-emerald-50/80 dark:bg-emerald-950/40">
+                <span class="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300">Stage 4 · OPD + MTP</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-1">跨领域教师蒸馏 + 原生投机解码头</div>
+                <p class="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">融合专项能力并加速线上推理</p>
+              </div>
+
+              <div onclick="openStageDrawer('nemotron-3.5-super', 'stage_5')" class="lg:col-span-2 pipeline-node cursor-pointer p-3 rounded-xl border border-rose-300 bg-rose-50/70 dark:bg-rose-950/40">
+                <span class="text-[10px] font-mono font-bold text-rose-700 dark:text-rose-300">Stage 5 · GenRM</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-1">Nemotron-RLHF-GenRM</div>
+                <p class="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">生成式奖励模型最终对齐</p>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // 5. PRIME INTELLECT INTELLECT-3.1: Same 106B Base -> Heavy SFT -> Hub-and-Spoke Async RLVR
+      if (recipeId === 'intellect-3.1-106b') {
+        return `
+          <div class="p-4 sm:p-5 rounded-2xl border border-amber-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 bg-dot-grid space-y-3 shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-amber-600 text-white">Prime Intellect INTELLECT-3.1 (106B/A12B)</span>
+                <span class="text-xs font-bold text-slate-800 dark:text-slate-100">同 GLM-4.5-Air 基座对照：“高密度 SFT → 单循环多环境中心辐射式异步 RLVR”拓扑</span>
+              </div>
+              <span class="text-[11px] font-mono text-amber-700">Environments Hub (500+ 开源任务环境)</span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center pt-1">
+              <div class="lg:col-span-2 p-3 rounded-xl border-2 border-slate-300 bg-slate-100 dark:bg-slate-800 text-center">
+                <span class="text-[10px] font-mono uppercase text-slate-500 font-bold">Same Base as Rufus</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-1">GLM-4.5-Air-Base</div>
+                <div class="text-[10px] font-mono text-slate-500">106B / A12B</div>
+              </div>
+
+              <div onclick="openStageDrawer('intellect-3.1-106b', 'stage_1')" class="lg:col-span-3 pipeline-node cursor-pointer p-3 rounded-xl border border-indigo-300 bg-indigo-50/80 dark:bg-indigo-950/40">
+                <span class="text-[10px] font-mono font-bold text-indigo-700 dark:text-indigo-300">Stage 1 · 开源 6.98M 样本</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-1">大规模多任务混合 SFT</div>
+                <p class="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">注入海量高质量长 CoT 推理与多步 Agent 蒸馏轨迹 (<code class="font-mono text-indigo-700 dark:text-indigo-300">INTELLECT-3-SFT</code>)</p>
+              </div>
+
+              <div onclick="openStageDrawer('intellect-3.1-106b', 'stage_2')" class="lg:col-span-3 pipeline-node cursor-pointer p-3.5 rounded-xl border-2 border-amber-500 bg-amber-50/90 dark:bg-amber-950/50">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-600 text-white">Stage 2 & 3 · 中心异步引擎</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-1.5"><code class="font-mono">prime-rl</code> Async Engine</div>
+                <p class="text-[11px] text-slate-700 dark:text-slate-300 mt-1">
+                  <strong>延迟隐藏技巧：</strong>模型生成首轮长 CoT 思考时，后台并发预热拉起代码容器沙盒 (Overlapped Sandbox Provisioning)
+                </p>
+              </div>
+
+              <div onclick="openStageDrawer('intellect-3.1-106b', 'stage_3')" class="lg:col-span-4 grid grid-cols-2 gap-1.5 pl-2 border-l-2 border-dashed border-amber-400 text-[11px]">
+                <div class="p-2 rounded-lg bg-emerald-50 dark:bg-slate-800 border border-emerald-200 font-semibold text-emerald-900 dark:text-emerald-200">🧮 Math Verifiers</div>
+                <div class="p-2 rounded-lg bg-sky-50 dark:bg-slate-800 border border-sky-200 font-semibold text-sky-900 dark:text-sky-200">💻 Competitive Code</div>
+                <div class="p-2 rounded-lg bg-purple-50 dark:bg-slate-800 border border-purple-200 font-semibold text-purple-900 dark:text-purple-200">🔬 Science & Logic</div>
+                <div class="p-2 rounded-lg bg-amber-50 dark:bg-slate-800 border border-amber-200 font-semibold text-amber-900 dark:text-amber-200">🌐 Deep Research & SWE (500+ Envs)</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // 6. XIAOMI MIMO-V2.6: Router-Frozen MoE + 3.7B Token/Step Async RL + Groupwise Agentic Grader
+      if (recipeId === 'mimo-v2.6') {
+        return `
+          <div class="p-4 sm:p-5 rounded-2xl border border-purple-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 bg-dot-grid space-y-3 shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-purple-600 text-white">Xiaomi MiMo-V2.6 (310B/A15B & 1.02T/A42B)</span>
+                <span class="text-xs font-bold text-slate-800 dark:text-slate-100">“冻结路由器超大 Batch 异步 RL → 四大 Agent 域 → Groupwise 质量与效率联合评分”拓扑</span>
+              </div>
+              <span class="text-[11px] font-mono text-purple-700">开源完整 RL 环境套件与 Mini-Harnesses</span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch pt-1">
+              <div onclick="openStageDrawer('mimo-v2.6', 'stage_2')" class="lg:col-span-4 pipeline-node cursor-pointer p-3 rounded-xl border-2 border-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/40">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-600 text-white">Stage 2 · 万亿 MoE 稳定核心</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-1.5">MoE Router Freezing + 3.7B Tokens/Step</div>
+                <p class="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                  在 1M 上下文窗口下直接<strong>冻结各层 MoE 路由器权重</strong>，以单步 2.7B~3.7B Tokens 的超大 Batch 规模进行长程异步 RL，彻底杜绝路由崩溃。
+                </p>
+              </div>
+
+              <div onclick="openStageDrawer('mimo-v2.6', 'stage_3')" class="lg:col-span-4 pipeline-node cursor-pointer p-3 rounded-xl border border-sky-300 bg-sky-50/70 dark:bg-sky-950/40 flex flex-col justify-between">
+                <span class="text-[10px] font-mono font-bold uppercase text-sky-700 dark:text-sky-300">Stage 3 · 四大可组合 Agent Mini-Harnesses</span>
+                <div class="grid grid-cols-2 gap-1.5 my-1.5 text-[11px]">
+                  <div class="p-2 rounded bg-white dark:bg-slate-900 border border-sky-200 font-medium">⌨️ Coding 工程开发</div>
+                  <div class="p-2 rounded bg-white dark:bg-slate-900 border border-sky-200 font-medium">📊 Office 办公自动化</div>
+                  <div class="p-2 rounded bg-white dark:bg-slate-900 border border-sky-200 font-medium">🎨 Visual 视觉/前端构建</div>
+                  <div class="p-2 rounded bg-white dark:bg-slate-900 border border-sky-200 font-medium">🛡️ Cybersecurity 网络攻防</div>
+                </div>
+                <span class="text-[10px] text-slate-500">每个环境产出同一 Prompt 下的整组 Rollout 轨迹</span>
+              </div>
+
+              <div onclick="openStageDrawer('mimo-v2.6', 'stage_3')" class="lg:col-span-4 pipeline-node cursor-pointer p-3 rounded-xl border-2 border-emerald-400 bg-emerald-50/80 dark:bg-emerald-950/40">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-600 text-white">核心奖励创新 · 防轨迹冗长</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-1.5">Groupwise Agentic Grading</div>
+                <p class="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                  不局限于 0/1 二元成败结果奖励，而是对同一组 Rollout 轨迹进行<strong>组内对比排序：联合打分任务成败 + 工程方案优雅度 + Token 简洁效率</strong>。
+                </p>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // 7. MINIMAX-M2.5 / M3: Dual-Loop (200K Automated Docker Synthesis Loop + Task-Routed Forge RL Loop)
+      if (recipeId === 'minimax-m2.5') {
+        return `
+          <div class="p-4 sm:p-5 rounded-2xl border border-amber-300/90 dark:border-slate-800 bg-white dark:bg-slate-900 bg-dot-grid space-y-3 shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-amber-600 text-white">MiniMax-M2.5 / M3 (230B/A9.8B & 428B/A23B)</span>
+                <span class="text-xs font-bold text-slate-800 dark:text-slate-100">“上环 20 万多语言容器自动合成 + 下环任务路由 Forge RL”双引擎耦合拓扑</span>
+              </div>
+              <span class="text-[11px] font-mono text-emerald-700">搜索轮数 -20% · 端到端耗时 -37%</span>
+            </div>
+
+            <!-- Upper Loop: Automated Environment Synthesis -->
+            <div onclick="openStageDrawer('minimax-m2.5', 'stage_2')" class="pipeline-node cursor-pointer p-3 rounded-xl border border-emerald-300 bg-emerald-50/70 dark:bg-emerald-950/40 flex flex-col lg:flex-row lg:items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-600 text-white shrink-0">上环 · 6阶段环境合成引擎</span>
+                <span class="font-bold text-xs text-slate-900 dark:text-white">全自动合成 200,000+ 多语言真实 Docker 沙盒:</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5 text-[11px] font-mono">
+                <span class="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-emerald-200">1. 抓取 10+ 语言 GitHub PR (Go/C++/Rust/TS/Java)</span>
+                <i class="ph-bold ph-arrow-right text-emerald-600"></i>
+                <span class="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-emerald-200">2. Agent 循环根据报错自动修复编译脚本</span>
+                <i class="ph-bold ph-arrow-right text-emerald-600"></i>
+                <span class="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-emerald-200 font-bold text-emerald-700">3. 过滤校验产出 200K 可复现容器</span>
+              </div>
+            </div>
+
+            <!-- Lower Loop: Spec-First SFT + Task-Routed Forge RL -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+              <div onclick="openStageDrawer('minimax-m2.5', 'stage_1')" class="lg:col-span-3 pipeline-node cursor-pointer p-3 rounded-xl border border-indigo-300 bg-indigo-50/70 dark:bg-indigo-950/40">
+                <span class="text-[10px] font-mono font-bold text-indigo-700">Stage 1 · 架构师式冷启动</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-1">Spec-First Planning SFT</div>
+                <p class="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">先像架构师一样写结构化 Spec 规划再动手改代码，大幅减少盲目试错</p>
+              </div>
+
+              <div onclick="openStageDrawer('minimax-m2.5', 'stage_2')" class="lg:col-span-6 pipeline-node cursor-pointer p-3 rounded-xl border-2 border-amber-400 bg-amber-50/80 dark:bg-amber-950/40">
+                <span class="text-[10px] font-mono font-bold text-amber-800 dark:text-amber-300">Stage 2 · 按 PR 任务类型路由可验证奖励 (Task-Routed Verifiable Rewards)</span>
+                <div class="grid grid-cols-3 gap-2 mt-1.5 text-[11px]">
+                  <div class="p-2 rounded bg-white dark:bg-slate-900 border border-amber-200">
+                    <div class="font-bold text-slate-900 dark:text-white">🐞 Bug 修复类</div>
+                    <div class="text-[10px] text-slate-500 mt-0.5">F2P (Fail-to-Pass) + P2P 测试通过奖励</div>
+                  </div>
+                  <div class="p-2 rounded bg-white dark:bg-slate-900 border border-amber-200">
+                    <div class="font-bold text-slate-900 dark:text-white">✨ Feature 新增类</div>
+                    <div class="text-[10px] text-slate-500 mt-0.5">自动提取新增功能测试点覆盖率</div>
+                  </div>
+                  <div class="p-2 rounded bg-white dark:bg-slate-900 border border-amber-200">
+                    <div class="font-bold text-slate-900 dark:text-white">🚀 Perf 性能优化类</div>
+                    <div class="text-[10px] text-slate-500 mt-0.5">P2P + 运行耗时/吞吐提升连续奖励</div>
+                  </div>
+                </div>
+              </div>
+
+              <div onclick="openStageDrawer('minimax-m2.5', 'stage_3')" class="lg:col-span-3 pipeline-node cursor-pointer p-3 rounded-xl border border-rose-300 bg-rose-50/70 dark:bg-rose-950/40">
+                <span class="text-[10px] font-mono font-bold text-rose-700">Stage 3 · Forge RL 效率强化</span>
+                <div class="font-bold text-xs text-slate-900 dark:text-white mt-1">交互轮数与挂钟耗时压缩</div>
+                <p class="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">在 BrowseComp 与办公流环境中联合惩罚冗余工具调用</p>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      return '';
+    }
+
+    // =========================================================================
+    // 4. VIEW RENDERING LOGIC
+    // =========================================================================
+    function getProblemById(pid) {
+      return ATLAS_DATA.problems.find(p => p.id === pid);
+    }
+
+    function renderProblemFilterPills() {
+      const container = document.getElementById('problem-pills-container');
+      container.innerHTML = ATLAS_DATA.problems.map(prob => {
+        const c = PROBLEM_COLORS[prob.color];
+        const isActive = activeProblemHighlight === prob.id;
+        return `
+          <button 
+            onclick="toggleProblemHighlight('${prob.id}')" 
+            class="px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 ${
+              isActive ? c.activeBg + ' shadow-xs scale-[1.02]' : c.bg + ' ' + c.border + ' ' + c.text + ' hover:opacity-90'
+            }"
+          >
+            <span class="w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white' : 'bg-current'}"></span>
+            <span>${prob.name}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function toggleInlinePipeline(recipeId) {
+      if (expandedInlineRows.has(recipeId)) {
+        expandedInlineRows.delete(recipeId);
+      } else {
+        expandedInlineRows.add(recipeId);
+      }
+      renderSwimlaneMatrix();
+    }
+
+    function expandAllInlinePipelines() {
+      if (expandedInlineRows.size === ATLAS_DATA.recipes.length) {
+        expandedInlineRows.clear();
+        document.getElementById('expand-all-btn-text').textContent = '展开全部内联 Pipeline';
+      } else {
+        ATLAS_DATA.recipes.forEach(r => expandedInlineRows.add(r.id));
+        document.getElementById('expand-all-btn-text').textContent = '折叠全部内联 Pipeline';
+      }
+      renderSwimlaneMatrix();
+    }
+
+    function renderSwimlaneMatrix() {
+      // 1. Render Table Header
+      const headerRow = document.getElementById('swimlane-header-row');
+      headerRow.innerHTML = `
+        <th class="w-64 p-3.5 sticky left-0 z-20 bg-slate-100/95 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
+          <div class="text-xs font-bold text-slate-900 dark:text-slate-100">厂商模型 / 基座与流派</div>
+          <div class="text-[11px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">支持按行展开各厂商专属 Pipeline 图谱</div>
+        </th>
+        ${ATLAS_DATA.canonical_stages.map(stg => `
+          <th class="w-56 p-3.5 align-top border-r last:border-r-0 border-slate-200/80 dark:border-slate-800/70">
+            <div class="flex items-center justify-between gap-1">
+              <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-indigo-50 text-indigo-700 dark:bg-sky-500/10 dark:text-sky-400 border border-indigo-200/80 dark:border-sky-500/20">
+                ${stg.code}
+              </span>
+            </div>
+            <div class="font-bold text-slate-900 dark:text-white mt-1 text-xs">${stg.title}</div>
+            <div class="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">${stg.subtitle}</div>
+          </th>
+        `).join('')}
+      `;
+
+      // 2. Filter Recipes
+      const filteredRecipes = ATLAS_DATA.recipes.filter(r => {
+        if (activeParadigm !== 'all' && r.paradigm_type !== activeParadigm) return false;
+        if (searchQuery.trim() !== '') {
+          const q = searchQuery.toLowerCase();
+          const fullText = JSON.stringify(r).toLowerCase();
+          if (!fullText.includes(q)) return false;
+        }
+        return true;
+      });
+
+      // 3. Render Table Body + Optional Expanded Pipeline Row
+      const tbody = document.getElementById('swimlane-body');
+      if (filteredRecipes.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="p-12 text-center text-slate-400">
+              未找到匹配的模型配方，请尝试点击右上角“重置”清除筛选条件。
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filteredRecipes.map(recipe => {
+        const pBadge = PARADIGM_BADGES[recipe.paradigm_type];
+        const isExpanded = expandedInlineRows.has(recipe.id);
+
+        return `
+          <!-- Main Stage Row -->
+          <tr class="group hover:bg-slate-50/90 dark:hover:bg-slate-900/40 transition-colors">
+            <!-- Sticky Left Model Meta Column -->
+            <td class="p-3.5 align-top sticky left-0 z-10 bg-white dark:bg-slate-925 group-hover:bg-slate-50 dark:group-hover:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
+              <div class="flex flex-col gap-1.5">
+                <div class="flex items-start justify-between gap-1">
+                  <div>
+                    <span class="font-bold text-sm text-slate-900 dark:text-white">${recipe.name}</span>
+                    <span class="block text-[11px] text-slate-500 dark:text-slate-400">${recipe.org} · ${recipe.date}</span>
+                  </div>
+                  <a href="${recipe.source_link}" target="_blank" rel="noopener noreferrer" class="text-[11px] font-mono font-semibold text-indigo-600 dark:text-sky-400 hover:underline flex items-center gap-0.5 shrink-0" title="访问原始论文或报告">
+                    <span>Paper</span>
+                    <i class="ph-bold ph-arrow-up-right"></i>
+                  </a>
+                </div>
+
+                <!-- Parameter Badge -->
+                <div class="flex flex-wrap items-center gap-1 mt-0.5">
+                  <span class="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
+                    ${recipe.params_total} / A${recipe.params_active}
+                  </span>
+                </div>
+
+                <!-- Paradigm Badge -->
+                <div class="mt-0.5">
+                  <span class="inline-block px-2 py-0.5 rounded text-[10px] font-semibold border ${pBadge.classes}">
+                    ${pBadge.label}
+                  </span>
+                </div>
+
+                <!-- Dedicated Pipeline Expand Button -->
+                <button 
+                  onclick="toggleInlinePipeline('${recipe.id}')"
+                  class="mt-1.5 w-full px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition flex items-center justify-between ${
+                    isExpanded 
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs' 
+                      : 'bg-indigo-50/80 dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-slate-700 hover:bg-indigo-100'
+                  }"
+                >
+                  <span class="flex items-center gap-1">
+                    <i class="ph-bold ph-git-fork"></i>
+                    <span>${isExpanded ? '收起专属 Pipeline 图' : '展开专属 Pipeline 图'}</span>
+                  </span>
+                  <i class="ph-bold ${isExpanded ? 'ph-caret-up' : 'ph-caret-down'}"></i>
+                </button>
+              </div>
+            </td>
+
+            <!-- 6 Stage Cells -->
+            ${ATLAS_DATA.canonical_stages.map(stg => {
+              const cell = recipe.stages[stg.id];
+              const solvesProblem = activeProblemHighlight
+                ? cell.problems_solved.includes(activeProblemHighlight)
+                : false;
+              const isDimmed = activeProblemHighlight && !solvesProblem;
+
+              let dotClass = 'bg-indigo-500';
+              let cardBorder = 'border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900/90';
+              if (cell.status === 'core') {
+                dotClass = 'bg-emerald-500';
+                cardBorder = 'border-emerald-300/90 dark:border-emerald-500/30 bg-emerald-50/35 dark:bg-emerald-500/[0.04]';
+              } else if (cell.status === 'skipped') {
+                dotClass = 'bg-slate-300 dark:bg-slate-600';
+                cardBorder = 'border-dashed border-slate-200 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-950/40 opacity-75';
+              }
+
+              return `
+                <td class="p-2.5 align-top border-r last:border-r-0 border-slate-200/70 dark:border-slate-800/60">
+                  <div 
+                    onclick="openStageDrawer('${recipe.id}', '${stg.id}')"
+                    class="cell-card cursor-pointer h-full p-3 rounded-xl border ${cardBorder} flex flex-col justify-between gap-2.5 ${
+                      isDimmed ? 'dimmed-cell' : ''
+                    } ${solvesProblem ? 'highlighted-cell' : ''}"
+                  >
+                    <div class="space-y-1.5">
+                      <div class="flex items-start justify-between gap-1.5">
+                        <span class="w-2 h-2 rounded-full ${dotClass} shrink-0 mt-1"></span>
+                        <h4 class="font-bold text-slate-900 dark:text-slate-100 text-xs leading-snug flex-1">
+                          ${cell.headline}
+                        </h4>
+                      </div>
+                      <p class="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-3 leading-relaxed">
+                        ${cell.summary}
+                      </p>
+                    </div>
+
+                    <!-- Problem Tags Solved in this Stage -->
+                    <div class="flex flex-wrap items-center gap-1 pt-1">
+                      ${cell.problems_solved.map(pid => {
+                        const prob = getProblemById(pid);
+                        if (!prob) return '';
+                        const c = PROBLEM_COLORS[prob.color];
+                        return `
+                          <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold border ${c.bg} ${c.border} ${c.text}">
+                            #${prob.name.split('与')[0]}
+                          </span>
+                        `;
+                      }).join('')}
+                      <span class="ml-auto text-[10px] font-medium text-slate-400 hover:text-indigo-600 flex items-center gap-0.5">
+                        <span>详情</span>
+                        <i class="ph-bold ph-caret-right"></i>
+                      </span>
+                    </div>
+                  </div>
+                </td>
+              `;
+            }).join('')}
+          </tr>
+
+          <!-- Inline Expandable Dedicated Pipeline Topology Row -->
+          ${isExpanded ? `
+            <tr class="bg-slate-50/90 dark:bg-slate-925 border-b-2 border-indigo-200/80 dark:border-slate-800">
+              <td colspan="7" class="p-4">
+                ${renderVendorPipelineDiagram(recipe.id)}
+              </td>
+            </tr>
+          ` : ''}
+        `;
+      }).join('');
+    }
+
+    // Render View 2: Full Dedicated Vendor Training Pipelines Tab
+    function renderDedicatedPipelinesView() {
+      const selectorContainer = document.getElementById('pipeline-selector-pills');
+      selectorContainer.innerHTML = `
+        <button onclick="setSelectedPipelineModel('all')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+          selectedPipelineModel === 'all'
+            ? 'bg-indigo-600 text-white shadow-xs'
+            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+        }">
+          全部厂商平铺 (7)
+        </button>
+        ${ATLAS_DATA.recipes.map(r => `
+          <button onclick="setSelectedPipelineModel('${r.id}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+            selectedPipelineModel === r.id
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+          }">
+            ${r.name}
+          </button>
+        `).join('')}
+      `;
+
+      const list = selectedPipelineModel === 'all'
+        ? ATLAS_DATA.recipes
+        : ATLAS_DATA.recipes.filter(r => r.id === selectedPipelineModel);
+
+      const container = document.getElementById('dedicated-pipelines-container');
+      container.innerHTML = list.map(r => `
+        <div class="space-y-2">
+          ${renderVendorPipelineDiagram(r.id)}
+        </div>
+      `).join('');
+    }
+
+    function setSelectedPipelineModel(modelId) {
+      selectedPipelineModel = modelId;
+      renderDedicatedPipelinesView();
+    }
+
+    function renderProblemCentricMatrix() {
+      const grid = document.getElementById('problem-cards-grid');
+      grid.innerHTML = ATLAS_DATA.problems.map(prob => {
+        const c = PROBLEM_COLORS[prob.color];
+
+        const solutions = [];
+        ATLAS_DATA.recipes.forEach(recipe => {
+          ATLAS_DATA.canonical_stages.forEach(stg => {
+            const stgData = recipe.stages[stg.id];
+            if (stgData && stgData.problems_solved.includes(prob.id)) {
+              solutions.push({ recipe, stage: stg, stgData });
+            }
+          });
+        });
+
+        return `
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 flex flex-col justify-between gap-4 shadow-xs">
+            <div class="space-y-3">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold border ${c.bg} ${c.border} ${c.text}">
+                    ${prob.en}
+                  </span>
+                  <h3 class="text-base font-bold text-slate-900 dark:text-white mt-1.5">
+                    ${prob.name}
+                  </h3>
+                </div>
+                <button 
+                  onclick="switchView('swimlane'); toggleProblemHighlight('${prob.id}', true);"
+                  class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white text-indigo-700 dark:text-slate-300 border border-indigo-200 dark:border-slate-700 transition shrink-0 flex items-center gap-1"
+                >
+                  <i class="ph-bold ph-magnifying-glass"></i>
+                  <span>在泳道中高亮 (${solutions.length})</span>
+                </button>
+              </div>
+
+              <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/90 border border-slate-200/80 dark:border-slate-800/80 space-y-2 text-xs">
+                <div>
+                  <span class="font-bold text-rose-600 dark:text-rose-400">🚨 典型故障现象：</span>
+                  <span class="text-slate-700 dark:text-slate-300 leading-relaxed">${prob.symptom}</span>
+                </div>
+                <div class="pt-2 border-t border-slate-200/80 dark:border-slate-800/60">
+                  <span class="font-bold text-emerald-700 dark:text-emerald-400">💡 2026 核心解法共识：</span>
+                  <span class="text-slate-700 dark:text-slate-300 leading-relaxed">${prob.key_takeaway}</span>
+                </div>
+              </div>
+
+              <div class="space-y-2 pt-1">
+                <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">各厂商具体落地手段对比（点击查看阶段详情）：</div>
+                <div class="divide-y divide-slate-100 dark:divide-slate-800/70 max-h-72 overflow-y-auto pr-1">
+                  ${solutions.map(item => `
+                    <div 
+                      onclick="openStageDrawer('${item.recipe.id}', '${item.stage.id}')"
+                      class="py-2.5 flex items-start justify-between gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 px-2 rounded-lg transition"
+                    >
+                      <div class="space-y-0.5">
+                        <div class="flex items-center gap-2">
+                          <span class="font-bold text-xs text-slate-900 dark:text-white">${item.recipe.name}</span>
+                          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-semibold bg-indigo-50 dark:bg-slate-800 text-indigo-700 dark:text-sky-400">
+                            ${item.stage.code}: ${item.stage.title}
+                          </span>
+                        </div>
+                        <div class="text-xs font-semibold text-slate-800 dark:text-slate-200">${item.stgData.headline}</div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">${item.stgData.methods[0] || item.stgData.summary}</div>
+                      </div>
+                      <i class="ph-bold ph-arrow-right text-slate-400 shrink-0 mt-1"></i>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function initDiffSelectors() {
+      const selA = document.getElementById('diff-select-a');
+      const selB = document.getElementById('diff-select-b');
+      const optionsHtml = ATLAS_DATA.recipes.map(r => `
+        <option value="${r.id}">${r.name} (${r.org} · ${r.params_total}/A${r.params_active})</option>
+      `).join('');
+      selA.innerHTML = optionsHtml;
+      selB.innerHTML = optionsHtml;
+      selA.value = 'rufus-air-106b';
+      selB.value = 'intellect-3.1-106b';
+    }
+
+    function setDiffPair(idA, idB) {
+      document.getElementById('diff-select-a').value = idA;
+      document.getElementById('diff-select-b').value = idB;
+      renderDiffView();
+    }
+
+    function renderDiffView() {
+      const idA = document.getElementById('diff-select-a').value;
+      const idB = document.getElementById('diff-select-b').value;
+      const modelA = ATLAS_DATA.recipes.find(r => r.id === idA);
+      const modelB = ATLAS_DATA.recipes.find(r => r.id === idB);
+
+      const container = document.getElementById('diff-comparison-container');
+      if (!modelA || !modelB) return;
+
+      container.innerHTML = `
+        <!-- Visual Pipeline Topology Comparison Block -->
+        <div class="space-y-3">
+          <div class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <i class="ph-bold ph-git-fork text-indigo-600"></i>
+            <span>第一步：双模型专属训练 Pipeline 拓扑结构对比</span>
+          </div>
+          ${renderVendorPipelineDiagram(modelA.id)}
+          ${renderVendorPipelineDiagram(modelB.id)}
+        </div>
+
+        <!-- Stage by Stage Comparison -->
+        <div class="pt-2 space-y-3">
+          <div class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <i class="ph-bold ph-list-checks text-indigo-600"></i>
+            <span>第二步：6 大标准阶段逐项参数与策略对比</span>
+          </div>
+          ${ATLAS_DATA.canonical_stages.map(stg => {
+            const stgA = modelA.stages[stg.id];
+            const stgB = modelB.stages[stg.id];
+            return `
+              <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70 text-xs shadow-2xs">
+                <div class="lg:col-span-2 flex flex-col justify-center pr-2 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 pb-2 lg:pb-0">
+                  <span class="text-[11px] font-mono font-bold text-indigo-600 dark:text-sky-400">${stg.code}</span>
+                  <div class="font-bold text-slate-900 dark:text-white text-sm mt-0.5">${stg.title}</div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">${stg.subtitle}</div>
+                </div>
+
+                <div class="lg:col-span-5 p-3.5 rounded-xl bg-slate-50/90 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
+                  <div class="font-bold text-slate-900 dark:text-white text-xs flex items-center justify-between gap-2">
+                    <span>${stgA.headline}</span>
+                    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 shrink-0">${modelA.name}</span>
+                  </div>
+                  <p class="text-slate-600 dark:text-slate-300 leading-relaxed">${stgA.summary}</p>
+                  <ul class="list-disc list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-400">
+                    ${stgA.methods.map(m => `<li>${m}</li>`).join('')}
+                  </ul>
+                  <div class="pt-1 text-[11px] text-slate-500">
+                    <strong>数据与过滤:</strong> ${stgA.data_And_filtering}
+                  </div>
+                </div>
+
+                <div class="lg:col-span-5 p-3.5 rounded-xl bg-slate-50/90 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
+                  <div class="font-bold text-slate-900 dark:text-white text-xs flex items-center justify-between gap-2">
+                    <span>${stgB.headline}</span>
+                    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 shrink-0">${modelB.name}</span>
+                  </div>
+                  <p class="text-slate-600 dark:text-slate-300 leading-relaxed">${stgB.summary}</p>
+                  <ul class="list-disc list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-400">
+                    ${stgB.methods.map(m => `<li>${m}</li>`).join('')}
+                  </ul>
+                  <div class="pt-1 text-[11px] text-slate-500">
+                    <strong>数据与过滤:</strong> ${stgB.data_And_filtering}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 5. DRAWER INTERACTION
+    // =========================================================================
+    function openStageDrawer(recipeId, stageId) {
+      const recipe = ATLAS_DATA.recipes.find(r => r.id === recipeId);
+      const stage = ATLAS_DATA.canonical_stages.find(s => s.id === stageId);
+      if (!recipe || !stage) return;
+      const cell = recipe.stages[stageId];
+
+      const headerEl = document.getElementById('drawer-header-content');
+      headerEl.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-indigo-100 text-indigo-700 dark:bg-sky-500/15 dark:text-sky-400 border border-indigo-200 dark:border-sky-500/20">
+            ${stage.code} · ${stage.title}
+          </span>
+          <span class="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+            ${recipe.params_total} / A${recipe.params_active}
+          </span>
+        </div>
+        <h3 class="text-base font-bold text-slate-900 dark:text-white mt-2">
+          ${recipe.name} (${recipe.org}) — ${cell.headline}
+        </h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          Base: ${recipe.base_model} · 流派: ${recipe.paradigm_label}
+        </p>
+      `;
+
+      const bodyEl = document.getElementById('drawer-body-content');
+      bodyEl.innerHTML = `
+        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">阶段定位与核心思路</div>
+          <p class="text-xs text-slate-700 dark:text-slate-200 leading-relaxed">${cell.summary}</p>
+        </div>
+
+        <div class="space-y-2">
+          <div class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+            <i class="ph-bold ph-gear-six text-indigo-600"></i>
+            <span>具体算法设计与训练策略 (Methods & Tricks)</span>
+          </div>
+          <ul class="space-y-2">
+            ${cell.methods.map(m => `
+              <li class="p-3 rounded-xl bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 leading-relaxed flex items-start gap-2 shadow-2xs">
+                <i class="ph-fill ph-check-circle text-emerald-600 shrink-0 mt-0.5"></i>
+                <span>${m}</span>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+
+        <div class="p-4 rounded-xl bg-amber-50/80 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 space-y-1">
+          <div class="text-xs font-bold text-amber-800 dark:text-amber-400 flex items-center gap-1.5">
+            <i class="ph-bold ph-funnel"></i>
+            <span>数据配比与课程过滤准则 (Data & Curriculum Filtering)</span>
+          </div>
+          <p class="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">${cell.data_And_filtering}</p>
+        </div>
+
+        <div class="p-4 rounded-xl bg-indigo-50/80 dark:bg-indigo-500/5 border border-indigo-200 dark:border-indigo-500/20 space-y-1">
+          <div class="text-xs font-bold text-indigo-800 dark:text-indigo-400 flex items-center gap-1.5">
+            <i class="ph-bold ph-cpu"></i>
+            <span>底层训练/推理 Infra 关键支撑</span>
+          </div>
+          <p class="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">${cell.infra_notes}</p>
+        </div>
+
+        <div class="space-y-2">
+          <div class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+            <i class="ph-bold ph-shield-check text-rose-600"></i>
+            <span>本阶段重点攻克的工程/算法痛点</span>
+          </div>
+          ${cell.problems_solved.length === 0 ? `
+            <div class="text-xs text-slate-400 italic">本阶段为常规衔接或跳过，无特定高亮痛点。</div>
+          ` : cell.problems_solved.map(pid => {
+            const p = getProblemById(pid);
+            if (!p) return '';
+            const c = PROBLEM_COLORS[p.color];
+            return `
+              <div class="p-3 rounded-xl border ${c.bg} ${c.border} space-y-1">
+                <div class="font-bold ${c.text}">${p.name} (${p.en})</div>
+                <div class="text-[11px] text-slate-700 dark:text-slate-300">${p.key_takeaway}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <div class="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
+          <div class="text-[11px] font-bold uppercase text-slate-400">快速跳转查看 ${recipe.name} 的其它阶段：</div>
+          <div class="grid grid-cols-3 gap-1.5">
+            ${ATLAS_DATA.canonical_stages.map(s => `
+              <button 
+                onclick="openStageDrawer('${recipe.id}', '${s.id}')"
+                class="px-2.5 py-1.5 rounded-lg text-[11px] font-mono text-left border transition ${
+                  s.id === stageId
+                    ? 'bg-indigo-600 text-white border-indigo-600 font-bold'
+                    : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-500'
+                }"
+              >
+                ${s.code}: ${s.title.split(' ')[0]}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      document.getElementById('detail-drawer-backdrop').classList.remove('hidden');
+      document.getElementById('detail-drawer').classList.remove('translate-x-full');
+    }
+
+    function closeDrawer() {
+      document.getElementById('detail-drawer-backdrop').classList.add('hidden');
+      document.getElementById('detail-drawer').classList.add('translate-x-full');
+    }
+
+    // =========================================================================
+    // 6. FILTERS, TABS & REPO EXPORT HELPERS
+    // =========================================================================
+    function switchView(viewName) {
+      currentView = viewName;
+      ['swimlane', 'pipelines', 'problems', 'diff', 'repo'].forEach(v => {
+        const el = document.getElementById(`view-${v}`);
+        const tab = document.getElementById(`tab-${v}`);
+        if (v === viewName) {
+          el.classList.remove('hidden');
+          tab.className = 'view-tab px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all bg-white dark:bg-slate-800 text-indigo-600 dark:text-sky-400 shadow-xs font-semibold';
+        } else {
+          el.classList.add('hidden');
+          tab.className = 'view-tab px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+        }
+      });
+
+      const controlBar = document.getElementById('control-bar');
+      if (viewName === 'swimlane') {
+        controlBar.classList.remove('hidden');
+      } else {
+        controlBar.classList.add('hidden');
+      }
+    }
+
+    function setParadigmFilter(paradigm) {
+      activeParadigm = paradigm;
+      document.querySelectorAll('.paradigm-btn').forEach(btn => {
+        if (btn.dataset.paradigm === paradigm) {
+          btn.className = 'paradigm-btn px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow-xs transition';
+        } else {
+          btn.className = 'paradigm-btn px-3 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-indigo-400 transition';
+        }
+      });
+      renderSwimlaneMatrix();
+    }
+
+    function toggleProblemHighlight(problemId, forceOn = false) {
+      if (forceOn) {
+        activeProblemHighlight = problemId;
+      } else {
+        activeProblemHighlight = activeProblemHighlight === problemId ? null : problemId;
+      }
+      renderProblemFilterPills();
+      renderSwimlaneMatrix();
+    }
+
+    function handleSearch(val) {
+      searchQuery = val;
+      renderSwimlaneMatrix();
+    }
+
+    function resetAllFilters() {
+      activeParadigm = 'all';
+      activeProblemHighlight = null;
+      searchQuery = '';
+      document.getElementById('search-input').value = '';
+      setParadigmFilter('all');
+      renderProblemFilterPills();
+      renderSwimlaneMatrix();
+    }
+
+    function updateTemplatePreview() {
+      const name = document.getElementById('form-name').value || 'New-Model-100B';
+      const org = document.getElementById('form-org').value || 'Lab · 2026.11';
+      const params = document.getElementById('form-params').value || '100B Total / 10B Active';
+      const paradigm = document.getElementById('form-paradigm').value;
+
+      const templateObj = {
+        id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        name: name,
+        org_and_date: org,
+        params: params,
+        paradigm_type: paradigm,
+        openness: "Open Weights + Tech Report",
+        infra_stack: "slime / verl / NeMo RL",
+        custom_pipeline_nodes: [
+          "Stage 0: Repo-level Code Mid-training",
+          "Stage 1: Cold-start SFT",
+          "Stage 2-3: Multi-Env RLVR + Agentic Rubric RL",
+          "Stage 4: Unified On-Policy Distillation"
+        ],
+        stages: {
+          stage_0_mid_training: { status: "standard", headline: "Repo-level code & reasoning annealing", problems_solved: [] },
+          stage_1_sft: { status: "core", headline: "Cold-start trajectories", problems_solved: ["forgetting_conflict"] },
+          stage_2_verifiable_rl: { status: "core", headline: "Async RLVR on Math/Code/SWE", problems_solved: ["moe_off_policy", "curriculum_efficiency"] },
+          stage_3_agent_rubric_rl: { status: "core", headline: "Multi-turn tool & Rubric GRM", problems_solved: ["reward_hacking", "env_synthesis"] },
+          stage_4_distillation: { status: "core", headline: "On-Policy Distillation (OPD)", problems_solved: ["forgetting_conflict"] },
+          stage_5_rlhf_efficiency: { status: "standard", headline: "General alignment & CoT token efficiency", problems_solved: ["overthinking_latency"] }
+        }
+      };
+
+      document.getElementById('template-json-preview').textContent = JSON.stringify(templateObj, null, 2);
+    }
+
+    function copyReadmeMarkdown() {
+      let md = `# 2026 100B+ Large Model Post-Training Recipes Atlas\n\n`;
+      md += `| 模型 | 机构与时间 | 参数规模 (总/激活) | 后训练核心范式 | 底层 RL Infra | 开源程度 |\n`;
+      md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+      ATLAS_DATA.recipes.forEach(r => {
+        md += `| **${r.name}** | ${r.org} (${r.date}) | ${r.params_total} / A${r.params_active} | ${r.paradigm_label} | \`${r.infra_stack}\` | ${r.openness} |\n`;
+      });
+      copyTextToClipboard(md, 'GitHub README.md 静态汇总表格已复制！');
+    }
+
+    function copyTextToClipboard(text, message) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      showToast(message);
+    }
+
+    function copyGeneratedTemplate() {
+      const text = document.getElementById('template-json-preview').textContent;
+      copyTextToClipboard(text, '新模型 JSON 模板已复制到剪贴板！');
+    }
+
+    function copyFullDataset() {
+      const text = JSON.stringify(ATLAS_DATA, null, 2);
+      copyTextToClipboard(text, '全量 7 模型 JSON 数据源已复制到剪贴板！');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      toast.classList.remove('translate-y-16', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-16', 'opacity-0');
+      }, 2400);
+    }
+
+    function toggleTheme() {
+      const htmlEl = document.documentElement;
+      const iconEl = document.getElementById('theme-icon');
+      const labelEl = document.getElementById('theme-label');
+      if (htmlEl.classList.contains('dark')) {
+        htmlEl.classList.remove('dark');
+        iconEl.className = 'ph-bold ph-moon text-sm text-indigo-600';
+        if (labelEl) labelEl.textContent = '深色';
+      } else {
+        htmlEl.classList.add('dark');
+        iconEl.className = 'ph-bold ph-sun text-sm text-amber-400';
+        if (labelEl) labelEl.textContent = '明亮';
+      }
+    }
+
+    // =========================================================================
+    // 7. INITIALIZATION ON LOAD
+    // =========================================================================
+    window.onload = function () {
+      renderProblemFilterPills();
+      renderSwimlaneMatrix();
+      renderDedicatedPipelinesView();
+      renderProblemCentricMatrix();
+      initDiffSelectors();
+      renderDiffView();
+      updateTemplatePreview();
+      document.getElementById('full-json-viewer').textContent = JSON.stringify(ATLAS_DATA, null, 2);
+    };
+  </script>
+</body>
+</html>

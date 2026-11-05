@@ -1,0 +1,157 @@
+{
+  "id": "rufus-air-106b",
+  "name": "Rufus-Air",
+  "org": "Amazon",
+  "date": "2026.09",
+  "params_total": "106B",
+  "params_active": "12B",
+  "base_model": "GLM-4.5-Air-Base",
+  "paradigm_type": "serial",
+  "paradigm_label": "8-Stage Anti-Hacking Serial Pipeline",
+  "openness": "Full Recipe + Open Data + Slime/SGLang Infra",
+  "source_link": "https://arxiv.org/abs/2609.29421",
+  "source_label": "arXiv:2609.29421",
+  "infra_stack": "Slime + SGLang (Token-in/Token-out + R3 Routing Replay)",
+  "topology_summary": "严格按“验证器抗 Hack 能力从强到弱”排列的 8 阶段单链条串行推进架构（SFT → Math RL → Code RL → Essential-Rubric IF RL → 3 阶段递进式 Agent RL → 末置开放域 RLHF），底部由 Slime + SGLang 路由重放总线全程托底。",
+  "stages": {
+    "stage_0": {
+      "status": "skipped",
+      "headline": "直接从 GLM-4.5-Air-Base 启动",
+      "summary": "论文从公开的 GLM-4.5-Air-Base 直接进入 SFT，没有单独的 Late Mid-Training 章节。",
+      "methods": [
+        "直接复用预训练基座分布，将算力集中在后续 8 个串行后训练阶段"
+      ],
+      "data_And_filtering": "无独立退火数据",
+      "infra_notes": "基座检查点转换至 Slime 训练格式",
+      "problems_solved": [],
+      "gaps": [
+        "论文未描述独立的 Late Mid-Training / 退火阶段，因此不能把“跳过”解释成他们比较过并否决了这一步。"
+      ],
+      "detail": "Rufus-Air 的起点是 GLM-4.5-Air-Base（106B 总参数、12B 激活）。作者选择它，是因为权重公开、Slime 来自 GLM-4.5 同一团队、SGLang 原生支持 GLM 系列，而且 12B 激活让后续 RL 能放在 8–32 个节点上。架构、分词器和原生 <think> 对话格式都保持不变，基座本身不改。论文没有把长上下文退火或仓库级 mid-training 写成独立阶段。"
+    },
+    "stage_1": {
+      "status": "core",
+      "headline": "9.01M 样本的多能力 SFT，先把能力地板打稳",
+      "summary": "SFT 覆盖通用对话、STEM、数学、代码和 Agent，损失只算助手轮次；数据来自 17 个公开数据集，不再生成新回答。",
+      "methods": [
+        "最终混合为 9.01M 条样本、44.5B 原始 token、6670 万对话轮（其中 2350 万轮被监督）；遮掉 system、user 和工具观察后，27.0B token（60.8%）进入损失",
+        "六类能力：General Agent 占样本 39.6% 但训练 token 只占 14.2%；Math 与 Coding Agent 合计只占样本 18.8%，却占训练 token 的 49.1%",
+        "17 个公开数据集按发布版本使用，不做 Rufus-Air 自己的回答重生成，也不新标人工数据"
+      ],
+      "data_And_filtering": "组成、统一监督格式、以及针对所报告基准的去污染，是数据管线的三步。样本占比和进入损失的 token 占比要分开看。",
+      "infra_notes": "SFT 与之后所有 RL 都跑在 Rufus-Slime（Slime 的改版）上，训练后端是 Megatron-LM。",
+      "problems_solved": [
+        "forgetting_conflict"
+      ],
+      "gaps": [
+        "看板旧稿写的“Thinking / Non-thinking 双模式混合冷启动”不是论文 3.1 节的组织方式。论文只说明沿用基座原生 <think> 格式，没有把双模式配比写成这一阶段的方法。"
+      ],
+      "detail": "论文把 SFT 写成能力地板，而不是热身。后面的 RL 需要三件事已经具备：验证器能解析的稳定推理和回答格式；聊天、数学、STEM、代码和工具使用的覆盖面；以及足够的多轮和长上下文，使奖励是在修正行为而不是从零教格式。目标是先做出一个已经能和公开 GLM-4.5-Air 后训练版比较的检查点。"
+    },
+    "stage_2": {
+      "status": "core",
+      "headline": "先做可验证的 Reasoning RL，再做 Coding RL",
+      "summary": "推理 RL 用 GSPO，并把难度限制在可学习区间；代码 RL 接在后面。两者都用 Rollout Routing Replay 稳住 MoE。",
+      "methods": [
+        "Reasoning RL 的策略梯度骨干是 GSPO（序列级重要性比率和截断），选择原因是长 MoE rollout 更稳，并和 Rollout Routing Replay 一起吸收 FP8 rollout 与 BF16 训练的偏差。论文没有把这一阶段写成 CISPO",
+        "正确性过滤：强教师 GPT-OSS-120B 拿不到正奖励的题丢掉。可学习性过滤：当前策略成功率高于 0.8 的题太易，成功率为 0 的题当前学不会，两者都去掉",
+        "83.5% 的推理题用 \\boxed{} 对短金标（中位数 5 token）打分。推理 RL 在 8 节点（64×H200）上同步训练，FP8 SGLang 与 BF16 训练同卡交替",
+        "Coding RL 在 32 个八卡节点（256 GPU）上，同样是同卡 FP8 SGLang rollout 与 BF16 训练交替"
+      ],
+      "data_And_filtering": "推理题来自公开题、Enigmata / ReasoningGym 合成题，以及带参考答案的第三方数学集。先做污染和安全筛查，再做正确性过滤和可学习性过滤。",
+      "infra_notes": "Rollout Routing Replay（R3）缓存 rollout 时的专家路由，并在训练前向里重放，去掉 MoE 训推路由不一致带来的 log-prob 缺口。该功能在上游 Slime 里。",
+      "problems_solved": [
+        "moe_off_policy",
+        "curriculum_efficiency"
+      ],
+      "gaps": [
+        "Coding RL 的题库构成、单元测试规模和学习率，本轮没有从 3.3 节逐项抄全，卡片不补充未核对的超参。"
+      ],
+      "detail": "八阶段的顺序由两根轴决定：能力从基础到进阶；奖励从难被钻的硬验证走向更软的打分、裁判或环境信号。Reasoning RL 和 Coding RL 因为奖励最不容易被 hack，放在 RL 的最前。作者明确说这个顺序并不能保护前面已经获得的能力，因为后面每个阶段都更新同一套参数，所以每阶段都相对它的起点检查点来记变化。"
+    },
+    "stage_3": {
+      "status": "core",
+      "headline": "全满足才给分的指令遵循，再接三类 Agent",
+      "summary": "IF RL 只用“必须满足”的 rubric，全部通过才有正奖励。其后是 General Agent、Coding Agent、Search Agent，而不是一条笼统的三阶段 Agent 课。",
+      "methods": [
+        "IF RL：每条样本的 rubric 只描述回答必须满足的条件，全部满足才给正奖励。能用程序判断的用 Python 真假函数，其余交给教师 LLM。刻意不写 optional rubric，因为它们给奖励加噪声，并推向长度偏见",
+        "General Agent 用 GRPO 和 DAPO 式动态采样（整组全对或全错的 prompt 丢掉），并使用 Rollout Routing Replay。针对有状态 MCP 的 rollout 每步 3072 条",
+        "Coding Agent 同样是 GRPO + 动态采样；沙盒启动失败、验证器超时、连接丢弃标成 aborted，在算优势前移出采样组，避免把基础设施故障当成奖励 0",
+        "Search Agent 用 GRPO 的 mean-only 组优势，G=16"
+      ],
+      "data_And_filtering": "IF 的 rubric 分成代码可验证和 LLM 裁判两类。Agent 阶段的环境细节在论文第 4.2 节的 Rufus-Gym，本卡片不另造任务配比。",
+      "infra_notes": "多轮 RL 使用 token-in/token-out，避免每轮把文本解码后再分词。Agent 环境层是 Rufus-Gym，rollout 引擎是 SGLang。",
+      "problems_solved": [
+        "reward_hacking",
+        "env_synthesis"
+      ],
+      "gaps": [
+        "Search Agent 是否等于旧稿里的 Deep Research 多跳检索，论文小节标题只写 Search Agent，不能把两者当成同一课程设计。",
+        "三类 Agent 的提示数量、最大轮数和学习率未在本轮摘全。"
+      ],
+      "detail": "论文把指令遵循放在推理和代码 RL 之后、开放奖励之前：IF 虽然用 rubric 裁判，但离模型已经会做的事近，裁判空间小，所以可以相对靠前。Agent 段是三个独立阶段：General Agent、Coding Agent、Search Agent。旧看板把它们写成“单轮工具 → 多轮工具 → Deep Research”的课程，和论文小节标题不一致。"
+    },
+    "stage_4": {
+      "status": "skipped",
+      "headline": "不采用跨阶段蒸馏，依靠抗 Hack 串行顺序保能力",
+      "summary": "配方是单模型八阶段串行更新，没有跨阶段或多教师在线蒸馏。",
+      "methods": [
+        "通过“强确定性验证器在前、易被 Hack 的软奖励在后”的严格串行顺序替代蒸馏"
+      ],
+      "data_And_filtering": "N/A",
+      "infra_notes": "单模型权重一路演进到底，降低存储多专家教师模型的显存开销",
+      "problems_solved": [],
+      "gaps": [
+        "“不蒸馏是为了省多教师显存”是看板推断，论文没有这样论证。"
+      ],
+      "detail": "论文的合并方式不是 OPD。后一阶段直接更新同一套参数，作者也写明阶段顺序不能自动保住前一阶段的分数，所以用阶段对照表记录每一步相对起点的变化。不存在“用蒸馏把专家汇回一个学生”的收口阶段。"
+    },
+    "stage_5": {
+      "status": "standard",
+      "headline": "最后才用学出来的奖励模型做 RLHF",
+      "summary": "这里的 RLHF 是对着学得的奖励模型做 RL，不是新的人工标注。因为这种奖励最好钻，所以放在整条流水线最后。",
+      "methods": [
+        "奖励来自已有的奖励模型，不为本配方新标人工偏好",
+        "放在最后，是为了缩短可被 hack 的奖励处于优化压力下的时间"
+      ],
+      "data_And_filtering": "论文说明该阶段服务没有确定性验证器的开放质量，并提到 IF RL 已经把回答缩短之后，RLHF 仍有单独要补的开放质量问题。具体偏好集规模未在本轮摘出。",
+      "infra_notes": "与前面的 RL 一样走 Rufus-Slime。论文没有在摘要层给出这一阶段的 KL 系数或步数上限。",
+      "problems_solved": [
+        "reward_hacking"
+      ],
+      "gaps": [
+        "旧稿中的“短周期、小学习率、严格限制 KL”没有出现在本轮核对的 RLHF 开篇，不能当成论文设定。"
+      ],
+      "detail": "阶段顺序的原则是奖励越容易被钻越靠后，不是按奖励的表面形式排序。RLHF 使用学得的奖励模型，作者引用其容易被 hack 和漂移，因此放在八阶段末尾。这和“强验证器在前、软奖励在后”一致，但不应把它写成一套未公开的 KL 超参。"
+    }
+  },
+  "tracks": {
+    "data_synthesis": {
+      "status": "standard",
+      "headline": "不合成新回答，17 个公开数据集原样使用",
+      "summary": "SFT 的问题和回答都来自已发布的数据集，不做 Rufus-Air 自己的回答重生成，也不新标人工数据。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "论文没有一条单独的环境合成流水线。Agent 环境在 Rufus-Gym，但本轮没有把它写成数据合成配方。"
+      ],
+      "detail": ""
+    },
+    "pretraining": {
+      "status": "skipped",
+      "headline": "直接使用未改动的 GLM-4.5-Air-Base",
+      "summary": "架构、分词器和原生 think 格式都保持基座原样。这篇是后训练配方，不包含预训练数据或训练步数。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "预训练语料、token 量和学习率都不在 Rufus-Air 论文里。"
+      ],
+      "detail": ""
+    }
+  },
+  "architecture": "moe"
+}

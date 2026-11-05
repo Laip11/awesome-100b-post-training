@@ -1,0 +1,213 @@
+{
+  "id": "mimo-v2.6",
+  "name": "MiMo-V2.6",
+  "org": "Xiaomi (小米)",
+  "date": "2026.10",
+  "params_total": "310B / 1.02T",
+  "params_active": "15B / 42B",
+  "base_model": "MiMo-V2.6-Base (1M Context)",
+  "paradigm_type": "async_rl",
+  "paradigm_label": "Ultra-Large Batch Async RL + Groupwise Agentic Grading",
+  "openness": "Open Weights + Full Open-Source RL Dev Suite (Envs + Harnesses)",
+  "source_link": "https://arxiv.org/abs/2610.11959",
+  "source_label": "arXiv:2610.11959",
+  "infra_stack": "2.7B-3.7B Tokens/Step Async RL + MoE Router Freezing",
+  "topology_summary": "以“冻结 MoE 路由器 (Router Freezing) + 每步 2.7B~3.7B Tokens 超大 Batch 异步强化”为主干，连接 Coding、Office、Visual、Cybersecurity 四大可组合 Mini-harnesses，并由 Groupwise Agentic Grader 同时对正确率、方案优雅度与 Token 效率进行组内排序。",
+  "stages": {
+    "stage_0": {
+      "status": "standard",
+      "headline": "先 256K、再 1M 的 mid-training，并切到 Muown 和 MXFP4 QAT",
+      "summary": "Mid-training 用 agent 轨迹、仓库代码和图像/视频/音频把预训练和大规模 RL 接起来。隐藏层优化器换成带行范数约束的 Muown，router 仍用 AdamW。",
+      "methods": [
+        "两段长度：大部分算力在 256K，最后再扩到 1M",
+        "数据同时覆盖任务域和模态：代码、通用、视觉、研究任务的真实 agent 轨迹，加上文本、仓库级代码、图像、视频和音频",
+        "隐藏权重用 Muown（Muon 加显式行范数控制），embedding、LM head 和 MoE router 继续 AdamW",
+        "mid-training 做 MXFP4 QAT，让模型适应低精度"
+      ],
+      "data_And_filtering": "报告没有在 3.2 节给出各模态的 token 配比。",
+      "infra_notes": "作者事先担心 Adam 预训练模型切到 Muon 会失配，但这次 mid-training 没有出现 loss spike。",
+      "problems_solved": [],
+      "gaps": [
+        "旧稿把激活参数写成与总参数顺序可能对调的简写时，应以 Pro 42B、Flash 15B 为准。本文件的 params 字段若写成 15B / 42B，顺序对应 Flash / Pro。"
+      ],
+      "detail": "Pro 是 1.02T 总参数、42B 激活；Flash 是 310B 总参数、15B 激活。Mid-training 的直接目的之一是为大 batch RL 换优化器：混合任务 RL 里 AdamW 随 batch 变大效率下降，Muown 利用矩阵结构的更新。"
+    },
+    "stage_1": {
+      "status": "standard",
+      "headline": "RL 前只有一段未展开的短 SFT",
+      "summary": "报告只说 RL 之前有一段短 SFT，没有展开冷启动配方。",
+      "methods": [
+        "RL 从 SFT 检查点继承 FP32 master weights 和 Muown 的 row state。"
+      ],
+      "data_And_filtering": "未在报告第 4–5 节给出。",
+      "infra_notes": "SFT 本身的并行策略未摘出。",
+      "problems_solved": [],
+      "gaps": [
+        "旧稿“四大领域冷启动轨迹”和“统一 Mini-harness 接口”不能从短 SFT 这句话推出。"
+      ],
+      "detail": "第 4 节的原句是：经过一段短的 supervised fine-tuning 之后，再沿训练算力、环境和评分器三个方向放大 RL。SFT 的数据构成、是否多域工具协议对齐，都不在这段里。RL 开始时会带上 SFT 检查点的 FP32 master weight 和 Muown 行状态，用来稳住 MXFP4。"
+    },
+    "stage_2": {
+      "status": "core",
+      "headline": "每步 1568 条 prompt、2.7B–3.7B token，并冻结 router",
+      "summary": "Pro 的 RL 花费 260 万美元，Flash 90 万美元。训练 batch 是 1568 条 prompt、每条 16 条 rollout，约 2.5 万条序列、2.7B–3.7B token。",
+      "methods": [
+        "GRPO，异步 partial rollout，staleness 为 4。损失按 prompt 平均，避免回复变长就主导梯度",
+        "重要性比率逐 token 计算，四组解耦截断边界按熵在线调整：熵太低就放宽正优势的边界、收紧负优势的边界",
+        "动态采样丢掉全对或全错的组。Sample Mixer 按不同任务的 rollout 时长和通过率拼 batch",
+        "训推一致性用 R3 和 top-p 候选集重放。Partial rollout 不重算已经生成 token 的推理概率",
+        "冻结 MoE router。对照实验里，可训练 router 在第 9 层使专家负载的变异系数、峰值负载和冷专家比例在前 20 步单调变差；把 step-20 的 router 权重还原后负载恢复、基准分数不变，说明崩溃来自 router 漂移而不是专家权重"
+      ],
+      "data_And_filtering": "RL 任务占比：agent 和竞赛代码 68%，通用工具 12%，审美设计 13%，上下文遵循 3%，安全 4%。全对全错组被动态采样去掉。",
+      "infra_notes": "优化器是 Muown，无 weight decay、无 warmup。动量、Newton–Schulz 迭代次数和学习率写在公式里。Rollout 占 Pro 成本的 43.8%，训练 43.5%，评分器 12.7%。数据面和控制面拆开，以便把轨迹装进 2.7B–3.7B token 的 batch。",
+      "problems_solved": [
+        "moe_off_policy",
+        "curriculum_efficiency"
+      ],
+      "gaps": [
+        "Muown 学习率和截断边界的具体小数在 HTML 公式里，散文摘录没有展开，卡片不补数字。",
+        "“每步 37 亿 token”若被理解成恒定值，报告写的是 2.7B–3.7B 的范围。"
+      ],
+      "detail": "Partial rollout 用来填满长尾：收集一个训练 batch 时，没跑完的序列留到下一轮续写。代价是策略更新后要重新 prefill。大 batch 用来摊掉这次重算。报告没有把这一机制写成 token 级 WAL。"
+    },
+    "stage_3": {
+      "status": "core",
+      "headline": "代码 agent 用组内评分区分“同样通过测试”的轨迹",
+      "summary": "通过测试只是二值信号。高通过率任务用离线的 Groupwise Reward Synthesis；其余代码任务用在线的 Groupwise Advantage Redistribution。",
+      "methods": [
+        "GRS：离线比较多次 rollout，生成解法 rubric 和行为 rubric，训练时再乘回测试奖励。失败轨迹奖励保持为 0",
+        "GAR：混合结果的一组轨迹放进同一工作区，由 SFT 过的 agent grader 对照成功和失败轨迹，重分配正优势，并把确认被 hack 的奖励清零",
+        "环境覆盖代码、专业办公流程、视觉产物和网络安全。代码任务有五条合成路径，包括 GitHub PR、内部开发请求、规格驱动、CodeMidas 从现有代码反推任务，以及长程任务迭代"
+      ],
+      "data_And_filtering": "GitHub 路径会滤掉重复、损坏和不可复现的 PR。若 issue 足够完整就用 issue 当规格，否则由 LLM 根据补丁重写规格，并要求不泄漏实现细节。还使用经过过滤的公开数据和授权供应商数据。",
+      "infra_notes": "多种 harness 同时 rollout。报告第 6 节把控制面和数据面拆开，并描述多框架并发。",
+      "problems_solved": [
+        "reward_hacking",
+        "overthinking_latency",
+        "env_synthesis"
+      ],
+      "gaps": [
+        "“方案优雅度”是旧稿用词。论文写的是解法 rubric（需求、边界、与仓库一致）和行为 rubric（取证、检查修改效果），GAR 还写了沿若干维度比较通过的补丁。维度的完整五条清单在摘录处被截断。"
+      ],
+      "detail": "组内评分要解决的是：只给 0/1 时，通过的轨迹无法区分实现质量和求解行为。GRS 把 rubric 乘在测试奖励上，所以 rubric 不能把失败轨迹救成正奖励。GAR 则在线比较同一组里的轨迹。"
+    },
+    "stage_4": {
+      "status": "standard",
+      "headline": "混合 RL 之后用 MOPD2 补上难验证的领域",
+      "summary": "MOPD2 在学生自己的 rollout 上做多教师蒸馏，并增加从前缀起步的单轮蒸馏，用来覆盖游戏开发、科研和具身这类难在线验证的任务。",
+      "methods": [
+        "有合适 mixRL 教师的领域保持标准 MOPD：学生自己 rollout",
+        "Teacher-Prefix OPD 用教师轨迹的历史前缀；SFT-Prefix OPD 用示范前缀。含 T 个助手轮的轨迹提供 T 个前缀，学生只从该前缀采样新的一轮",
+        "开放域先用高质量合成示范训练 SFT 教师，再从固定示范前缀起步，减少学生在长程任务里越走越偏"
+      ],
+      "data_And_filtering": "前缀来自教师 rollout 或 SFT 数据。难验证领域包括长程游戏开发、科学研究和具身智能。",
+      "infra_notes": "教师按前缀预先指定，按学生已经生成的 token 提供 token 级监督。",
+      "problems_solved": [
+        "forgetting_conflict"
+      ],
+      "gaps": [
+        "各教师的采样权重和前缀比例没有表。"
+      ],
+      "detail": "这一阶段不是把 RL 检查点做权重合并且结束。它专门补 RL 奖励很难设计的领域。报告把最终榜单放在 MOPD2 之后。"
+    },
+    "stage_5": {
+      "status": "standard",
+      "headline": "防刷分写在环境和 GAR 里",
+      "summary": "防奖励黑客写在环境构造和 GAR 里：确认被 hack 的奖励清零，并在训练前用执行检查、rollout 审计和对抗测试。",
+      "methods": [
+        "GAR 将确认的 hack 奖励置 0。",
+        "损失按 prompt 平均，抑制回复变长。"
+      ],
+      "data_And_filtering": "训练前的审计包括执行检查、基于 rollout 的审查和对抗测试。",
+      "infra_notes": "未单列一个末置 RLHF 阶段。",
+      "problems_solved": [
+        "reward_hacking"
+      ],
+      "gaps": [
+        "“多层级”具体有几层，摘要只给了名称，正文层次未在本轮逐条列出。"
+      ],
+      "detail": "报告把奖励可靠性放在环境一节（4.2.6）和 GAR 里，而不是最后一个通用对齐阶段。多层级防御是原文 “multi-layer defense against reward hacking”，具体层次没有在摘要里展开成清单。Overthinking 的对应机制是 prompt 级损失聚合，以及 grader 把优势分给更短、更省 token 的解。"
+    }
+  },
+  "tracks": {
+    "data_synthesis": {
+      "status": "core",
+      "headline": "代码任务用五条路径合成，写在 RL 环境一节",
+      "summary": "包括 GitHub PR、内部开发请求、规格驱动、用 CodeMidas 从现有代码反推任务，以及长程任务迭代。公开和授权数据再经过过滤。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "各路径的条数和通过率阈值没有在摘录里形成表。视觉、办公和安全环境的合成步骤也未逐条列入。"
+      ],
+      "detail": ""
+    },
+    "pretraining": {
+      "status": "standard",
+      "headline": "预训练覆盖文本、视觉和音频，优化器用 AdamW",
+      "summary": "报告说预训练建立通用理解，mid-training 才把模型和后面的大 batch RL 接起来。篇幅主要不在预训练配方。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "预训练 token 量、数据配比和学习率未在 3.2 节给出。"
+      ],
+      "detail": ""
+    }
+  },
+  "variants": [
+    {
+      "id": "flash",
+      "label": "Flash",
+      "params_total": "310B",
+      "params_active": "15B",
+      "overrides": {
+        "stage_2": {
+          "status": "core",
+          "headline": "RL 花费 90 万美元",
+          "summary": "Flash 与 Pro 使用同一套大 batch 设置：每步 1568 条 prompt、16 条 rollout。报告单列的 RL 花费是 90 万美元。",
+          "methods": [
+            "报告把 router 冻结的对照实验写在 Pro 上，没有另给一套 Flash 算法。"
+          ],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [
+            "moe_off_policy",
+            "curriculum_efficiency"
+          ],
+          "gaps": [
+            "Flash 的 DeepSWE 起止分数在摘录的公式里，没有写成可引用的小数。"
+          ],
+          "detail": ""
+        }
+      }
+    },
+    {
+      "id": "pro",
+      "label": "Pro",
+      "params_total": "1.02T",
+      "params_active": "42B",
+      "overrides": {
+        "stage_2": {
+          "status": "core",
+          "headline": "RL 花费 260 万美元，并在 Pro 上验证冻结 router",
+          "summary": "Pro 的 RL 花费是 260 万美元。每步同样是 1568 条 prompt、约 2.7B–3.7B token。冻结 router 的负载对照是在 Pro 上做的。",
+          "methods": [
+            "可训练 router 会在前 20 步把专家负载打歪；还原 router 权重后负载恢复，说明问题来自 router 漂移。"
+          ],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [
+            "moe_off_policy",
+            "curriculum_efficiency"
+          ],
+          "gaps": [],
+          "detail": ""
+        }
+      }
+    }
+  ],
+  "architecture": "moe"
+}

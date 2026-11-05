@@ -1,0 +1,202 @@
+{
+  "id": "deepseek-v4",
+  "name": "DeepSeek-V4",
+  "org": "DeepSeek",
+  "date": "2026.04 - 08",
+  "params_total": "284B / 1.6T",
+  "params_active": "13B / 49B",
+  "base_model": "DeepSeek-V4-Base (1M Context)",
+  "paradigm_type": "opd",
+  "paradigm_label": "Divide-and-Conquer Specialists + Unified OPD",
+  "openness": "Open Weights + Deep Infra & Algorithm Technical Report",
+  "source_link": "https://arxiv.org/abs/2606.19348",
+  "source_label": "arXiv:2606.19348",
+  "infra_stack": "MXFP4 Post-Training QAT + Token-level WAL Resumable Rollout",
+  "topology_summary": "典型的“扇出分治 + 扇入统一蒸馏”有向无环图（Fan-out / Fan-in DAG）：先从 Base 分裂出 Math、Coding/SWE、Agent、General (Rubric-GRM) 四个独立专家各自运行高强度 SFT+GRPO，再通过 Unified On-Policy Distillation 一次性汇聚至单一学生模型。",
+  "stages": {
+    "stage_0": {
+      "status": "standard",
+      "headline": "Pro 1.6T / Flash 284B，上下文 100 万；后训练未单列退火",
+      "summary": "V4-Pro（1.6T/49B 激活）和 V4-Flash（284B/13B 激活）都支持 100 万 token 上下文。后训练章节没有把长上下文退火拆成可复现配方。",
+      "methods": [
+        "高效稀疏注意力与长序列退火"
+      ],
+      "data_And_filtering": "长文档、代码仓库与合成长思维链语料",
+      "infra_notes": "1M Context 极低显存开销架构",
+      "problems_solved": [],
+      "gaps": [
+        "旧稿里的“高效稀疏注意力与长序列退火数据配方”没有在第 5 节写成一个可核对的 Stage 0。预训练架构（CSA/HCA）不等于后训练退火。"
+      ],
+      "detail": "论文摘要给出的预览版规模是 DeepSeek-V4-Pro 1.6T 参数、49B 激活，DeepSeek-V4-Flash 284B 参数、13B 激活，上下文长度都是一百万 token。第 5 节从预训练之后的后训练写起，没有单独给出“1M 退火语料配比”或位置编码扩展步骤。长上下文主要出现在后训练基础设施里：FP4 QAT 覆盖 CSA indexer 的 QK 通路，以及百万 token 上下文的 RL/OPD。"
+    },
+    "stage_1": {
+      "status": "core",
+      "headline": "按领域先做专家的微调，再进入该领域 RL",
+      "summary": "领域专家沿用 V3.2 的流程：先微调，再用领域 prompt 和奖励做 GRPO。同一专家还按推理力度分成不同配置。",
+      "methods": [
+        "每个专家先微调，再做领域奖励的 GRPO，超参与先前 DeepSeek 报告保持接近，论文没有在这一节重列新的学习率表",
+        "Pro 和 Flash 都有 Non-think、Think High、Think Max 三种推理力度。RL 里用不同的长度惩罚和上下文窗口，Think Max 还会在系统提示开头注入一段不许走捷径的指令",
+        "工具调用改成带 <|DSML|> 的 XML schema，用来减少转义失败"
+      ],
+      "data_And_filtering": "领域 prompt 和奖励按专家分开。论文没有在 5.1.1 列出数学/代码/Agent/通用四专家的样本量表。",
+      "infra_notes": "思考内容在工具调用场景里整段对话保留，不再像 V3.2 那样在新用户消息到来时丢掉全部推理痕迹。这依赖 1M 上下文。",
+      "problems_solved": [
+        "forgetting_conflict"
+      ],
+      "gaps": [
+        "“Math、Coding/SWE、Agent、General 恰好四个专家”不能从第 5.1 节证实。OPD 使用的是十个以上、覆盖不同领域的教师。",
+        "各专家冷启动轨迹的条数和筛选阈值未给出。"
+      ],
+      "detail": "后训练大框架沿用 V3.2，但把混合 RL 换成了 On-Policy Distillation。专家阶段仍然是“微调 + 领域 RL”。难验证任务不再训练标量 RM，而是做 rubric 引导的 RL，并用生成式奖励模型（GRM）打分；GRM 本身也做 RL，角色和策略模型统一。论文写的是“多于十个教师”，不是旧稿里的恰好四个专家。"
+    },
+    "stage_2": {
+      "status": "core",
+      "headline": "专家侧 GRPO，后训练引入 MXFP4 QAT 和 token 级 WAL",
+      "summary": "专家 RL 用 GRPO。后训练用 MXFP4 QAT 适应部署精度；rollout 用 token 粒度预写日志，避免中断后续写造成短回复偏差。",
+      "methods": [
+        "GRPO 用于领域专家的 RL。混合 RL 阶段被 OPD 替换，不要把最终汇合也写成混合 GRPO",
+        "MXFP4 QAT 打在 MoE 专家权重和 CSA indexer 的 QK 通路上。优化器仍持有 FP32 master weight，前向量化到 FP4 再反量化到 FP8 计算；论文称该反量化在当前权重的 scale 条件下无损。推理和 rollout 直接用原生 FP4 权重",
+        "indexer 的分数在 QAT 中从 FP32 量化到 BF16，top-k 选择加速 2 倍，KV 条目召回率 99.7%",
+        "集群任务可被抢占。每个生成请求维护 token 粒度 WAL：每生成一个 token 就追加。抢占时暂停引擎并保存未完成请求的 KV cache，恢复时从 WAL 和 KV cache 续写。论文明确说从头重生成在数学上不正确，因为短回复更可能在中断前写完，会引入长度偏差"
+      ],
+      "data_And_filtering": "易验证任务用规则或测试用例。难验证任务用 rubric 引导的数据加 GRM，而不是标量奖励模型。",
+      "infra_notes": "后训练基础设施沿用 V3.2 的分布式训练栈和 rollout 引擎，并加上 FP4 QAT、全词表 OPD 的教师调度，以及可抢占的生成服务。",
+      "problems_solved": [
+        "moe_off_policy",
+        "reward_hacking"
+      ],
+      "gaps": [
+        "各垂直领域题库规模、GRPO 的 group size 和学习率，5.1 节只说与先前报告接近，没有新表。"
+      ],
+      "detail": "WAL 解决的是抢占和硬件故障下的续写，不是一条单独的“短回复奖励惩罚”。作者给出的机制是：如果未完成请求从头重采样，较短序列更不容易被中断，训练分布会被推向短输出。batch-invariant 且确定性的推理栈也可以用固定种子重生成来避免这个偏差，但要重跑解码，比 WAL 贵。"
+    },
+    "stage_3": {
+      "status": "core",
+      "headline": "难验证任务用 rubric 训练的生成式奖励模型",
+      "summary": "V4 不用常规标量 RM。难验证任务做成 rubric 引导的 RL，并由同时被 RL 优化的 GRM 评分。",
+      "methods": [
+        "GRM 与策略统一：actor 自己承担评判，评判能力和生成能力一起优化",
+        "论文强调这样做只用一小套多样的人工标注，靠模型自己的推理泛化到复杂任务"
+      ],
+      "data_And_filtering": "rubric 引导的 RL 数据用于难验证任务。标注规模只被描述为“minimal set”，没有给出条数。",
+      "infra_notes": "工具场景要求在 thinking mode 下先写完 <think> 再发工具调用。",
+      "problems_solved": [
+        "reward_hacking"
+      ],
+      "gaps": [
+        "自博弈对局数、rubric 维度和 GRM 与策略是否共享全部权重，论文没有展开到可复现配置。"
+      ],
+      "detail": "这一段是专家训练里的奖励设计，不是一个排在所有专家之后的独立“第三阶段”。标量 RM / RLHF 被明确拿掉。GRM 的鲁棒性来自把模型自己的推理写进评分过程。"
+    },
+    "stage_4": {
+      "status": "core",
+      "headline": "十个以上教师的全词表 On-Policy Distillation",
+      "summary": "专家各自做完微调和 RL 之后，用多教师 OPD 把能力收进一个学生。学生在自己采样的轨迹上对齐教师分布，损失是加权的全词表 KL。",
+      "methods": [
+        "学生从自己的轨迹上学习，保持 on-policy。目标是各专家 reverse KL 的加权和，权重大致反映该专家的相对重要性",
+        "当前任务只对齐相关专家，例如数学题对齐数学专家、编程对齐代码专家",
+        "不用只在已采样 token 上估计 KL 的简化，而做全词表 logit 蒸馏。论文把这写成相对“把 KL 塞回 RL 优势项”的先前做法的差别",
+        "教师数量多于十个。基础设施一节写明要支撑十余个教师的超长上下文 OPD 合并"
+      ],
+      "data_And_filtering": "轨迹由学生自己采样。教师按领域选用。混合比例的具体权重表未在摘录中给出。",
+      "infra_notes": "5.2.2 专门写了全词表 OPD 的教师调度。本轮没有把调度算法的伪代码抄进卡片。",
+      "problems_solved": [
+        "forgetting_conflict"
+      ],
+      "gaps": [
+        "学生是否从同一个 base 初始化、教师各自的领域名单、以及 w_i 的数值，正文公式层有定义，但没有领域对照表。"
+      ],
+      "detail": "OPD 是这条流水线相对 V3.2 的关键替换：最终模型不是再跑一轮混合 RL，而是把多个物理上分开的专家分布收进同一套参数。作者认为这避开了权重合并和混合 RL 常见的退步。"
+    },
+    "stage_5": {
+      "status": "standard",
+      "headline": "难验证任务不再单列标量 RLHF",
+      "summary": "通用偏好不再训练标量 RM。开放质量主要靠 GRM 和最后的多教师 OPD，而不是单独的末置 RLHF。",
+      "methods": [
+        "轻量级全局对齐与 Token 预算控制"
+      ],
+      "data_And_filtering": "高优人类偏好与简洁推理样本",
+      "infra_notes": "端到端 MXFP4 一致性校验",
+      "problems_solved": [
+        "overthinking_latency"
+      ],
+      "gaps": [
+        "未找到单独的通用 RLHF 阶段，也没有把 overthinking 压缩写成 Stage 5 的配方。相关机制在专家 RL 的长度惩罚和 Think Max 提示里。"
+      ],
+      "detail": "论文写明难验证任务不再走“大量人工标注训练标量奖励模型”的 RLHF。因此旧稿里“Stage 5 = 通用 RLHF + 思维链压缩”不能映射到 V4 的一个独立收尾阶段。推理长度是在专家 RL 里用长度惩罚和三种 reasoning effort 控制的。"
+    }
+  },
+  "tracks": {
+    "data_synthesis": {
+      "status": "standard",
+      "headline": "难验证任务用 rubric 数据，没有单独的合成章",
+      "summary": "易验证任务用规则或测试。难验证任务做成 rubric 引导的 RL，并由 GRM 评分。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "专家各自的冷启动条数、以及有没有独立的环境合成管线，第 5 节没有给出。"
+      ],
+      "detail": ""
+    },
+    "pretraining": {
+      "status": "skipped",
+      "headline": "论文有预训练章，本看板还没核对进这一格",
+      "summary": "已核对的是后训练第 5 节。摘要里的规模是 Pro 1.6T/49B 激活、Flash 284B/13B 激活，上下文 100 万。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "第 4 节预训练的数据配比和超参尚未摘入，不能在这里复述。"
+      ],
+      "detail": ""
+    }
+  },
+  "variants": [
+    {
+      "id": "flash",
+      "label": "Flash",
+      "params_total": "284B",
+      "params_active": "13B",
+      "overrides": {
+        "stage_0": {
+          "status": "standard",
+          "headline": "284B / 13B 激活，上下文 100 万",
+          "summary": "Flash 与 Pro 共用后训练流程。后训练章节没有把长上下文退火写成可复现配方。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "Flash 与 Pro 的阶段差异没有在第 5 节分开写，除规模外不要分成两套算法。"
+          ],
+          "detail": ""
+        }
+      }
+    },
+    {
+      "id": "pro",
+      "label": "Pro",
+      "params_total": "1.6T",
+      "params_active": "49B",
+      "overrides": {
+        "stage_0": {
+          "status": "standard",
+          "headline": "1.6T / 49B 激活，上下文 100 万",
+          "summary": "Pro 与 Flash 都支持三种推理力度。后训练章节没有把长上下文退火写成可复现配方。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "Pro 与 Flash 的阶段差异没有在第 5 节分开写，除规模外不要分成两套算法。"
+          ],
+          "detail": ""
+        }
+      }
+    }
+  ],
+  "architecture": "moe"
+}

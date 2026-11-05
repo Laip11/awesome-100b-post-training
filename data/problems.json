@@ -1,0 +1,52 @@
+{
+  "problems": [
+    {
+      "id": "moe_off_policy",
+      "name": "MoE 训推偏移与路由崩溃",
+      "en": "MoE Off-policy & Router Collapse",
+      "color": "sky",
+      "symptom": "100B+ 稀疏 MoE 在异步 Rollout 时，推理引擎 (SGLang/vLLM) 与训练引擎 (Megatron/FSDP) 的专家路由激活不一致，加上 bfloat16/FP4 精度差异与分词重编码边界漂移，导致长程 RL 梯度爆炸或路由器坍塌。",
+      "key_takeaway": "2026 主流解法分为三层：采样层强制 Token-in/Token-out 避免重分词；路由层采用 Routing Replay (R3) 或直接冻结 Router 权重 (Router Freezing)；精度层在后训练直接引入 MXFP4/NVFP4 量化感知训练 (QAT)。"
+    },
+    {
+      "id": "reward_hacking",
+      "name": "奖励黑客与长度膨胀偏见",
+      "en": "Reward Hacking & Length Bias",
+      "color": "rose",
+      "symptom": "模型在指令遵循或开放域 RL 中通过堆砌废话、迎合可选加分项、或者利用异步抢占恢复机制（短回复更容易在节点中断前完成并进入训练集）引发严重的回复长度失控与刷分。",
+      "key_takeaway": "1) 按抗 Hack 难度严格串行排序（最易被 Hack 的通用 RLHF 放最后）；2) 砍掉 Optional Rubrics，仅保留 Essential Rubrics；3) 训练基于 Rubric 自博弈的 GRM 或采用 Groupwise 组内对比排序；4) Rollout 引入 Token 级 WAL 断点续写消除短回复幸存者偏见。"
+    },
+    {
+      "id": "forgetting_conflict",
+      "name": "多阶段遗忘与多任务梯度冲突",
+      "en": "Catastrophic Forgetting & Gradient Conflict",
+      "color": "purple",
+      "symptom": "Math/Code 强推理 RL 与通用对话/Agent 任务混合训练时出现跷跷板效应；或者过重的 SFT 锁死模型分布，导致后续 RL 探索空间丧失（可塑性下降）。",
+      "key_takeaway": "两条主流路线：一是 Nemotron 3.5 将重度 SWE/Agent 轨迹前移至 Late Mid-Training，保持 SFT 轻量；二是 DeepSeek-V4 / GLM-5 采用“独立训练垂域专家 + 最终阶段 Unified On-Policy Distillation (OPD)”完全替代单模型长链条串行微调。"
+    },
+    {
+      "id": "curriculum_efficiency",
+      "name": "样本效率与动态课程过滤",
+      "en": "Sample Efficiency & Dynamic Filtering",
+      "color": "amber",
+      "symptom": "在 GRPO 等组相对策略优化中，全对 (Pass rate = 1) 或全错 (Pass rate = 0) 的 Prompt 会产生全零优势梯度，浪费大量 100B+ 模型昂贵的 Rollout 算力。",
+      "key_takeaway": "离线与在线双重难度过滤成为标配（例如 Rufus-Air 严格剔除成功率 > 0.8 或 == 0 的样本），确保每个训练 Step 的计算量全部集中在模型当前能力的“最近发展区”。"
+    },
+    {
+      "id": "env_synthesis",
+      "name": "真实代码与长程 Agent 沙盒合成",
+      "en": "Scalable SWE & Agent Env Synthesis",
+      "color": "emerald",
+      "symptom": "Python 之外的多语言真实代码仓库编译依赖极其脆弱，手工构建可验证 Docker 环境成本过高；同时沙盒容器冷启动延迟严重拖慢 RL Rollout 吞吐。",
+      "key_takeaway": "MiniMax-M2.5 用 Agent 循环根据报错自动修复构建脚本，合成 20 万+ 覆盖 10 余种语言的真实容器环境；INTELLECT-3.1 则将模型首轮 CoT 思考时间与沙盒预热 (Sandbox Provisioning) 在时间轴上重叠以隐藏环境延迟。"
+    },
+    {
+      "id": "overthinking_latency",
+      "name": "思维链冗余与推理延迟控制",
+      "en": "Overthinking & Token Efficiency",
+      "color": "indigo",
+      "symptom": "长思维链 RL 训练出的百亿/千亿模型在简单任务或高频工具调用中也生成数千 Token 的冗余思考，导致生产环境延迟与显存开销不可接受。",
+      "key_takeaway": "在 Agent RL 中引入轮数与 Token 效率联合评分（如 MiMo-V2.6 Groupwise Grading、MiniMax Forge RL 倡导 Spec-first 规划，以及 Fireworks Ember-1 的靶向 CoT 压缩 RL），在不掉点的前提下削减 20%~40% 消耗。"
+    }
+  ]
+}

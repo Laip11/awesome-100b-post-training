@@ -1,0 +1,209 @@
+{
+  "id": "minimax-m2.5",
+  "name": "MiniMax-M2",
+  "org": "MiniMax",
+  "date": "2026.02 - 07",
+  "params_total": "229.9B",
+  "params_active": "9.8B",
+  "base_model": "MiniMax-M2/M3 MoE",
+  "paradigm_type": "async_rl",
+  "paradigm_label": "200K Automated Multilingual Docker Envs + Forge RL",
+  "openness": "Open Weights (M2.5) + Tech Report + Deep Engineering Blogs",
+  "source_link": "https://arxiv.org/abs/2605.26494",
+  "source_label": "arXiv:2605.26494",
+  "infra_stack": "Forge RL + 200,000+ Multilingual SWE Sandboxes",
+  "topology_summary": "独创“双环耦合拓扑”：上环为自动化环境合成管线（Agent 根据编译报错自动修复构建脚本，从 GitHub PR 合成 20 万+ 覆盖 10 余种语言的真实容器）；下环为 Forge RL 训练引擎（按 Bugfix / Feature / Performance 三类任务路由不同奖励信号，并联合优化交互轮数）。",
+  "stages": {
+    "stage_0": {
+      "status": "standard",
+      "headline": "旗舰 M2 为 229.9B / 9.8B 激活，上下文 192K",
+      "summary": "报告给出的旗舰 M2 是 229.9B 总参数、每 token 激活 9.8B，原生上下文 192K。没有单独的多语言仓库退火章节。",
+      "methods": [
+        "多语言跨文件依赖图与 PR 演进历史预热"
+      ],
+      "data_And_filtering": "多语言 GitHub 活跃仓库语料",
+      "infra_notes": "极低激活比 (230B/A9.8B) 高吞吐训练",
+      "problems_solved": [],
+      "gaps": [
+        "旧稿的 M3 428B/23B 不在本报告的模型定义里。",
+        "多语言仓库退火的语料配比未核到。上下文是 192K，不是一份单独的 Stage 0 配方。"
+      ],
+      "detail": "M2 是 62 层 decoder-only MoE，256 个细粒度专家，sigmoid 门控，GQA 全注意力，并带 MTP 模块。系列叙事是 M2 → M2.5 → M2.7。M2.7 会自己排查失败的训练、修改自己的 agent scaffold，并在 ML 工程任务上做多轮自改进。报告没有把“10 余种语言的仓库级退火”写成预训练之后的一个阶段。"
+    },
+    "stage_1": {
+      "status": "core",
+      "headline": "SFT 学的是思考与动作交错，而不是先写 Spec",
+      "summary": "SFT 把思考痕迹插在中间动作和观察之间。语料覆盖 chat、reasoning、code、cowork，用领域奖励做拒绝采样后再清洗。",
+      "methods": [
+        "与一整段长 CoT 不同，监督轨迹是思考、动作、观察交错",
+        "大规模拒绝采样对着领域奖励，再做多阶段清洗"
+      ],
+      "data_And_filtering": "四个域：chat、reasoning、code、cowork，包含单轮推理和多轮 agent。",
+      "infra_notes": "SFT 的目标是给后面的 Forge RL 一个会交错思考的初值。",
+      "problems_solved": [
+        "overthinking_latency"
+      ],
+      "gaps": [
+        "Spec-first planning 未在 SFT 或 RL 章节出现，不能保留成已核实方法。"
+      ],
+      "detail": "报告第 5 节没有把“动手前先写 Spec”写成 SFT 方法。交错思考在第 7 节被当成 agent 机制，评测时 M2.5 和 M2.7 都打开 thinking，并使用这套轨迹协议。"
+    },
+    "stage_2": {
+      "status": "core",
+      "headline": "六步 SWE 流水线：按任务类型改变可验证奖励",
+      "summary": "从合并的 GitHub PR 出发，用 agent 循环修构建脚本，再按 bug、feature、performance 使用不同测试奖励。报告没有给出 20 万个容器这个数字。",
+      "methods": [
+        "六步：爬取并过滤带测试的已合并 PR；用 agent 根据执行反馈迭代 Dockerfile 和构建脚本，专门处理 Java、Go、Rust、C++ 的工具链差异；给 PR 打任务类型标签；按类型构造测试奖励；再用模型检查任务是否含糊",
+        "Bug：抽取 Fail-to-Pass 和 Pass-to-Pass，金补丁必须通过。P2P 用来防止修 bug 时引入新错",
+        "Feature：不套 F2P/P2P，改为抽取新增测试点并要求金补丁通过",
+        "Performance：抽取能稳定显示优化前后性能差的 P2P 测试"
+      ],
+      "data_And_filtering": "只保留最终合并、并通过规则过滤、且带相关测试的 PR。非 Python 环境因为依赖和版本冲突更难合成，所以用带专家知识的 agent 循环。",
+      "infra_notes": "环境合成是数据管线的一部分。训练系统本身是 Forge，不是这六步脚本。",
+      "problems_solved": [
+        "env_synthesis",
+        "curriculum_efficiency"
+      ],
+      "gaps": [
+        "“20 万以上容器”和“10 余种语言”没有出现在已读的 4.1 节。语言例子是 Java、Go、Rust、C++，并说明非 Python 更不可靠。",
+        "性能奖励是否直接使用耗时的连续值，正文写的是抽取能验证稳定且显著性能差的 P2P 测试，没有写成连续吞吐奖励公式。"
+      ],
+      "detail": "Agentic coding 除了 SWE，还有 AppDev 和终端任务。SWE 这条线的重点是：原始 PR 不能直接用，必须先变成可运行环境，再按任务类型改变奖励定义。性能任务没有“修 bug”过程，所以奖励来自优化前后可测量的差异。"
+    },
+    "stage_3": {
+      "status": "core",
+      "headline": "Forge 用 CISPO 训练长轨迹，奖励里有过程分",
+      "summary": "策略优化是 CISPO：重要性权重非对称截断，下界为 0，上界限制过大更新，权重本身 stop-gradient。轨迹最长到 192K token。",
+      "methods": [
+        "动作是一次 LLM completion，环境包括工具和 agent harness。信用分配仍在整条轨迹上做",
+        "优势是带轨迹级基线的 reward-to-go",
+        "过程奖励惩罚语言混用和工具格式错误，并奖励结构清楚的中间推理。结果奖励单独存在，摘录在过程奖励处截断，没有把全部公式抄入"
+      ],
+      "data_And_filtering": "Cowork 轨道覆盖深搜索、办公、金融表格和幻灯片。深搜索用 guide-and-rewrite 把种子问题改到能区分强弱 agent，并要求答案落在实际检索到的证据上，而不是模型记忆。",
+      "infra_notes": "Forge 分成 Agent Side、训练/推理 Side，以及 Gateway 和 Data Pool。Agent 可以是白盒（框架看得到上下文管理）或黑盒 API。调度要同时对付吞吐、稳定性和任意 agent 结构。MTP 用 top-K KL 与策略一起训练，避免 RL 过程中草案接受率掉下去。",
+      "problems_solved": [
+        "overthinking_latency",
+        "env_synthesis"
+      ],
+      "gaps": [
+        "旧稿的 -20% 轮数和 -37% 挂钟时间未在报告的 RL 或评测节核到。",
+        "CISPO 的具体 ε 只在公式中，卡片不补未摘出的小数。"
+      ],
+      "detail": "报告没有把 BrowseComp 上“轮数减少 20%、挂钟时间减少 37%”写进 RL 章节。评测里 M2.7 的 BrowseComp 是 77.8，内部 RISE 是 64.3，相对 M2.5 的 RISE 50.2 高 14 分。这些是 M2.7 的结果，不是 M2.5 的训练配方数字。"
+    },
+    "stage_4": {
+      "status": "standard",
+      "headline": "没有单独的轨迹融合蒸馏",
+      "summary": "报告没有一个名叫“多领域轨迹融合”的蒸馏阶段。M2.7 的自进化是模型修改自己的 scaffold 并复盘失败训练。",
+      "methods": [
+        "M2.7 自主排查失败训练并修改 agent scaffold。"
+      ],
+      "data_And_filtering": "未描述跨任务轨迹混合的采样比。",
+      "infra_notes": "自进化仍然通过 Forge 的训练和评测闭环，而不是单独的蒸馏集群。",
+      "problems_solved": [
+        "forgetting_conflict"
+      ],
+      "gaps": [
+        "旧稿“多专家轨迹混合回流”未核到。"
+      ],
+      "detail": "系列改进体现在 M2 到 M2.5 到 M2.7 的评测，而不是把多个专家蒸馏回一个学生。M2.7 会分流失败的训练运行、按任务修改 scaffold，并在 MLE Bench Lite 一类任务上做多轮自改进。这和 OPD 不是同一件事。"
+    },
+    "stage_5": {
+      "status": "standard",
+      "headline": "对话和角色扮演有自己的数据与 RLHF",
+      "summary": "开放对话和角色扮演有独立数据轨和 RLHF 信号，但不是流水线最后一步的通用润色。",
+      "methods": [
+        "角色扮演奖励来自线上隐式和显式反馈，并做去偏",
+        "用熵监控减轻 reward hacking"
+      ],
+      "data_And_filtering": "生成后用规则和模型评估器检查。角色扮演还用 Best-of-N 和周期性片段改写。",
+      "infra_notes": "MTP 与 RL 策略用 top-K KL 一起训练。",
+      "problems_solved": [
+        "overthinking_latency"
+      ],
+      "gaps": [
+        "“每天每并发成本”和 9.8B 激活带来的线上成本，报告只把 9.8B 写成设计原则，没有给出并发成本表。"
+      ],
+      "detail": "通用对话数据含长 CoT，分写作、问答和多轮。写作可以带文件系统。工具样本和无工具样本都有。角色扮演用真实产品反馈做 RLHF，先用因果推断和分层去偏去掉噪声，并监控熵以减轻 reward hacking。原生上下文 192K，MTP 在 RL 中持续合训，这是效率手段，不是一个末置的 overthinking RL。"
+    }
+  },
+  "tracks": {
+    "data_synthesis": {
+      "status": "core",
+      "headline": "六步把 GitHub PR 做成可运行环境，再按任务改奖励",
+      "summary": "只保留已合并、带测试、通过规则过滤的 PR。非 Python 用 agent 根据构建报错改 Dockerfile。Bug、feature、performance 用不同的测试奖励。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "20 万容器和 10 余种语言没有出现在已读的 4.1 节。性能奖励没有写成连续耗时公式。"
+      ],
+      "detail": ""
+    },
+    "pretraining": {
+      "status": "standard",
+      "headline": "已核对的是架构，不是预训练数据配方",
+      "summary": "旗舰 M2 为 229.9B 总参数、每 token 激活 9.8B，62 层，256 个专家，原生上下文 192K，并带 MTP。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "论文有预训练数据一节，本看板尚未逐项核对，不能把架构数字写成数据配比。"
+      ],
+      "detail": ""
+    }
+  },
+  "variants": [
+    {
+      "id": "m2",
+      "label": "M2",
+      "params_total": "229.9B",
+      "params_active": "9.8B"
+    },
+    {
+      "id": "m2.5",
+      "label": "M2.5",
+      "params_total": "—",
+      "params_active": "—",
+      "overrides": {
+        "pretraining": {
+          "status": "standard",
+          "headline": "作为系列里的前一版公开检查点",
+          "summary": "评测表把 M2.5 当作 M2.7 的 within-series 对照。架构数字写在旗舰 M2 上。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "已核对章节没有给出这一检查点单独的参数量。训练配方按 M2 系列来写，不把 M3 的 428B 记进来。"
+          ],
+          "detail": ""
+        }
+      }
+    },
+    {
+      "id": "m2.7",
+      "label": "M2.7",
+      "params_total": "—",
+      "params_active": "—",
+      "overrides": {
+        "stage_4": {
+          "status": "standard",
+          "headline": "会修改自己的 scaffold",
+          "summary": "M2.7 会排查失败的训练并按任务改 agent scaffold，再在 ML 工程任务上做多轮自改进。这不是 OPD。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "已核对章节没有给出这一检查点单独的参数量。训练配方按 M2 系列来写，不把 M3 的 428B 记进来。"
+          ],
+          "detail": ""
+        }
+      }
+    }
+  ],
+  "architecture": "moe"
+}

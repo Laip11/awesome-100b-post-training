@@ -1,0 +1,131 @@
+{
+  "id": "llama-3.1-405b",
+  "name": "Llama 3.1",
+  "org": "Meta",
+  "date": "2024.07",
+  "params_total": "405B",
+  "params_active": "405B",
+  "base_model": "Llama 3.1 405B",
+  "architecture": "dense",
+  "paradigm_type": "serial",
+  "paradigm_label": "SFT, rejection sampling, and DPO",
+  "openness": "Open weights under the Llama 3 Community License",
+  "source_link": "https://arxiv.org/abs/2407.21783",
+  "source_label": "arXiv:2407.21783",
+  "infra_stack": "Dense Transformer; no PPO",
+  "topology_summary": "405B 是标准 dense Transformer。后训练选用 SFT、拒绝采样和 DPO，不用 PPO。",
+  "variants": [
+    {
+      "id": "405b",
+      "label": "405B",
+      "params_total": "405B",
+      "params_active": "405B"
+    }
+  ],
+  "stages": {
+    "stage_0": {
+      "status": "skipped",
+      "headline": "长上下文是继续预训练，不叫 mid-training",
+      "summary": "8K 预训练之后，用继续预训练把上下文扩到 128K。论文没有把这一步称为 mid-training。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    },
+    "stage_1": {
+      "status": "core",
+      "headline": "监督微调，训练数据包含拒绝采样结果",
+      "summary": "后训练的主体是 SFT。拒绝采样作用在人工标注的提示上，选出的样本再和其他合成数据一起进入微调。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [
+        "forgetting_conflict"
+      ],
+      "gaps": [
+        "405B 的 SFT 步数和学习率没有在引言摘录中单列。"
+      ],
+      "detail": ""
+    },
+    "stage_2": {
+      "status": "skipped",
+      "headline": "不用 PPO 一类强化学习",
+      "summary": "论文写明选择 SFT、拒绝采样和 DPO，而不是更不稳定、更难扩展的 PPO 类算法。因此没有可验证奖励的 RL 阶段。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    },
+    "stage_3": {
+      "status": "skipped",
+      "headline": "没有单独的开放任务强化学习",
+      "summary": "开放偏好放在 DPO，不单开一轮 rubric 或环境强化学习。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    },
+    "stage_4": {
+      "status": "skipped",
+      "headline": "没有在线蒸馏",
+      "summary": "旗舰模型被用来提高更小模型的后训练质量，但 405B 自己的流程不是 OPD。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "小模型如何使用 405B 的具体蒸馏损失没有在引言里展开。"
+      ],
+      "detail": ""
+    },
+    "stage_5": {
+      "status": "standard",
+      "headline": "用 DPO 做偏好对齐",
+      "summary": "直接偏好优化是后训练的第三步，用来在 SFT 之后对齐回答，而不是再跑 PPO。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [
+        "reward_hacking"
+      ],
+      "gaps": [
+        "DPO 的 β 和偏好批大小需要回看后训练章节，引言只给出流程名称。"
+      ],
+      "detail": ""
+    }
+  },
+  "tracks": {
+    "data_synthesis": {
+      "status": "standard",
+      "headline": "拒绝采样和合成数据进入 SFT",
+      "summary": "在人工提示上做拒绝采样，再与其他数据源包括合成数据一起微调。",
+      "methods": [],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [
+        "合成数据的领域和规模没有在引言里列出。"
+      ],
+      "detail": ""
+    },
+    "pretraining": {
+      "status": "core",
+      "headline": "405B dense Transformer，15.6 万亿 token",
+      "summary": "论文明确选择标准 dense Transformer，而不是 MoE，以换取训练稳定性。旗舰模型约 3.8×10^25 FLOPs。常规预训练上下文 8K，随后继续预训练到 128K。",
+      "methods": [
+        "词表 128K，其中约 10 万来自 tiktoken，另加 2.8 万非英语 token。"
+      ],
+      "data_And_filtering": "",
+      "infra_notes": "",
+      "problems_solved": [],
+      "gaps": [],
+      "detail": ""
+    }
+  }
+}

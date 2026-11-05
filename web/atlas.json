@@ -1,0 +1,2291 @@
+{
+  "version": "2026.11-bright",
+  "lenses": [
+    {
+      "id": "data_synthesis",
+      "group": "Data",
+      "title": "Data Synthesis",
+      "subtitle": "Trajectories, environments, and verifiable tasks",
+      "track": "data_synthesis"
+    },
+    {
+      "id": "pretraining",
+      "group": "Pre-training",
+      "title": "Pre-training",
+      "subtitle": "The base model, before post-training",
+      "track": "pretraining"
+    },
+    {
+      "id": "midtraining",
+      "group": "Mid-training",
+      "title": "Mid-training",
+      "subtitle": "Between pre-training and SFT",
+      "stage_ids": [
+        "stage_0"
+      ]
+    },
+    {
+      "id": "sft",
+      "group": "Post-training",
+      "title": "SFT",
+      "subtitle": "Cold start and supervised trajectories",
+      "stage_ids": [
+        "stage_1"
+      ]
+    },
+    {
+      "id": "rl_verifiable",
+      "group": "Post-training",
+      "title": "Verifiable RL",
+      "subtitle": "Math, code, and test-based rewards",
+      "stage_ids": [
+        "stage_2"
+      ]
+    },
+    {
+      "id": "rl_open",
+      "group": "Post-training",
+      "title": "Open-ended RL",
+      "subtitle": "Rubrics, preferences, and soft rewards",
+      "stage_ids": [
+        "stage_3",
+        "stage_5"
+      ]
+    },
+    {
+      "id": "opd",
+      "group": "Post-training",
+      "title": "OPD",
+      "subtitle": "Only when the recipe uses distillation",
+      "stage_ids": [
+        "stage_4"
+      ],
+      "optional": true
+    }
+  ],
+  "canonical_stages": [
+    {
+      "id": "stage_0",
+      "code": "阶段 0",
+      "title": "中期训练",
+      "subtitle": "后训练前置 / 退火注入",
+      "desc": "在进入正式 SFT 前，将长思维链、代码仓库 PR Diff、Agent 轨迹放到大上下文退火阶段注入，防止过长 SFT 损害后续 RL 探索可塑性。（这是本看板为横向对比设定的阶段框，不是某一篇论文自己的阶段名。）"
+    },
+    {
+      "id": "stage_1",
+      "code": "阶段 1",
+      "title": "监督微调",
+      "subtitle": "冷启动与专家轨迹微调",
+      "desc": "激发 Thinking/Non-thinking 双模式格式、注入专家拒绝采样轨迹，以及通过 Error Masking 保留错误上下文恢复能力。（这是本看板为横向对比设定的阶段框，不是某一篇论文自己的阶段名。）"
+    },
+    {
+      "id": "stage_2",
+      "code": "阶段 2",
+      "title": "可验证强化",
+      "subtitle": "数学、代码与有测试的任务",
+      "desc": "基于确定性规则、单元测试与多语言 Docker 沙盒的强化学习，重点解决 MoE 训推偏移、动态难度过滤与沙盒启动延迟。（这是本看板为横向对比设定的阶段框，不是某一篇论文自己的阶段名。）"
+    },
+    {
+      "id": "stage_3",
+      "code": "阶段 3",
+      "title": "开放任务强化",
+      "subtitle": "长程工具、评分细则与指令遵循",
+      "desc": "针对多跳搜索 (Deep Research)、复杂工具调用与指令遵循，使用仅必要 Rubric、自博弈 GRM 或 Groupwise 排序打分抑制刷分。（这是本看板为横向对比设定的阶段框，不是某一篇论文自己的阶段名。）"
+    },
+    {
+      "id": "stage_4",
+      "code": "阶段 4",
+      "title": "在线蒸馏",
+      "subtitle": "跨阶段或多专家的在线策略蒸馏",
+      "desc": "通过 On-Policy Distillation (OPD) 将垂直领域专家或前序各阶段最优 Checkpoint 无损融合，消除多阶段串行遗忘与梯度冲突。（这是本看板为横向对比设定的阶段框，不是某一篇论文自己的阶段名。）"
+    },
+    {
+      "id": "stage_5",
+      "code": "阶段 5",
+      "title": "通用偏好对齐",
+      "subtitle": "开放偏好与生成长度控制",
+      "desc": "开放域人类偏好对齐、安全防护，以及抑制推理模型过度思考 (Overthinking) 的思维链压缩与中断恢复偏见修正。（这是本看板为横向对比设定的阶段框，不是某一篇论文自己的阶段名。）"
+    }
+  ],
+  "problems": [
+    {
+      "id": "moe_off_policy",
+      "name": "MoE 训推偏移与路由崩溃",
+      "en": "MoE Off-policy & Router Collapse",
+      "color": "sky",
+      "symptom": "100B+ 稀疏 MoE 在异步 Rollout 时，推理引擎 (SGLang/vLLM) 与训练引擎 (Megatron/FSDP) 的专家路由激活不一致，加上 bfloat16/FP4 精度差异与分词重编码边界漂移，导致长程 RL 梯度爆炸或路由器坍塌。",
+      "key_takeaway": "2026 主流解法分为三层：采样层强制 Token-in/Token-out 避免重分词；路由层采用 Routing Replay (R3) 或直接冻结 Router 权重 (Router Freezing)；精度层在后训练直接引入 MXFP4/NVFP4 量化感知训练 (QAT)。"
+    },
+    {
+      "id": "reward_hacking",
+      "name": "奖励黑客与长度膨胀偏见",
+      "en": "Reward Hacking & Length Bias",
+      "color": "rose",
+      "symptom": "模型在指令遵循或开放域 RL 中通过堆砌废话、迎合可选加分项、或者利用异步抢占恢复机制（短回复更容易在节点中断前完成并进入训练集）引发严重的回复长度失控与刷分。",
+      "key_takeaway": "1) 按抗 Hack 难度严格串行排序（最易被 Hack 的通用 RLHF 放最后）；2) 砍掉 Optional Rubrics，仅保留 Essential Rubrics；3) 训练基于 Rubric 自博弈的 GRM 或采用 Groupwise 组内对比排序；4) Rollout 引入 Token 级 WAL 断点续写消除短回复幸存者偏见。"
+    },
+    {
+      "id": "forgetting_conflict",
+      "name": "多阶段遗忘与多任务梯度冲突",
+      "en": "Catastrophic Forgetting & Gradient Conflict",
+      "color": "purple",
+      "symptom": "Math/Code 强推理 RL 与通用对话/Agent 任务混合训练时出现跷跷板效应；或者过重的 SFT 锁死模型分布，导致后续 RL 探索空间丧失（可塑性下降）。",
+      "key_takeaway": "两条主流路线：一是 Nemotron 3.5 将重度 SWE/Agent 轨迹前移至 Late Mid-Training，保持 SFT 轻量；二是 DeepSeek-V4 / GLM-5 采用“独立训练垂域专家 + 最终阶段 Unified On-Policy Distillation (OPD)”完全替代单模型长链条串行微调。"
+    },
+    {
+      "id": "curriculum_efficiency",
+      "name": "样本效率与动态课程过滤",
+      "en": "Sample Efficiency & Dynamic Filtering",
+      "color": "amber",
+      "symptom": "在 GRPO 等组相对策略优化中，全对 (Pass rate = 1) 或全错 (Pass rate = 0) 的 Prompt 会产生全零优势梯度，浪费大量 100B+ 模型昂贵的 Rollout 算力。",
+      "key_takeaway": "离线与在线双重难度过滤成为标配（例如 Rufus-Air 严格剔除成功率 > 0.8 或 == 0 的样本），确保每个训练 Step 的计算量全部集中在模型当前能力的“最近发展区”。"
+    },
+    {
+      "id": "env_synthesis",
+      "name": "真实代码与长程 Agent 沙盒合成",
+      "en": "Scalable SWE & Agent Env Synthesis",
+      "color": "emerald",
+      "symptom": "Python 之外的多语言真实代码仓库编译依赖极其脆弱，手工构建可验证 Docker 环境成本过高；同时沙盒容器冷启动延迟严重拖慢 RL Rollout 吞吐。",
+      "key_takeaway": "MiniMax-M2.5 用 Agent 循环根据报错自动修复构建脚本，合成 20 万+ 覆盖 10 余种语言的真实容器环境；INTELLECT-3.1 则将模型首轮 CoT 思考时间与沙盒预热 (Sandbox Provisioning) 在时间轴上重叠以隐藏环境延迟。"
+    },
+    {
+      "id": "overthinking_latency",
+      "name": "思维链冗余与推理延迟控制",
+      "en": "Overthinking & Token Efficiency",
+      "color": "indigo",
+      "symptom": "长思维链 RL 训练出的百亿/千亿模型在简单任务或高频工具调用中也生成数千 Token 的冗余思考，导致生产环境延迟与显存开销不可接受。",
+      "key_takeaway": "在 Agent RL 中引入轮数与 Token 效率联合评分（如 MiMo-V2.6 Groupwise Grading、MiniMax Forge RL 倡导 Spec-first 规划，以及 Fireworks Ember-1 的靶向 CoT 压缩 RL），在不掉点的前提下削减 20%~40% 消耗。"
+    }
+  ],
+  "recipes": [
+    {
+      "id": "llama-3.1-405b",
+      "name": "Llama 3.1",
+      "org": "Meta",
+      "date": "2024.07",
+      "params_total": "405B",
+      "params_active": "405B",
+      "base_model": "Llama 3.1 405B",
+      "architecture": "dense",
+      "paradigm_type": "serial",
+      "paradigm_label": "SFT, rejection sampling, and DPO",
+      "openness": "Open weights under the Llama 3 Community License",
+      "source_link": "https://arxiv.org/abs/2407.21783",
+      "source_label": "arXiv:2407.21783",
+      "infra_stack": "Dense Transformer; no PPO",
+      "topology_summary": "405B 是标准 dense Transformer。后训练选用 SFT、拒绝采样和 DPO，不用 PPO。",
+      "variants": [
+        {
+          "id": "405b",
+          "label": "405B",
+          "params_total": "405B",
+          "params_active": "405B"
+        }
+      ],
+      "stages": {
+        "stage_0": {
+          "status": "skipped",
+          "headline": "长上下文是继续预训练，不叫 mid-training",
+          "summary": "8K 预训练之后，用继续预训练把上下文扩到 128K。论文没有把这一步称为 mid-training。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_1": {
+          "status": "core",
+          "headline": "监督微调，训练数据包含拒绝采样结果",
+          "summary": "后训练的主体是 SFT。拒绝采样作用在人工标注的提示上，选出的样本再和其他合成数据一起进入微调。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [
+            "forgetting_conflict"
+          ],
+          "gaps": [
+            "405B 的 SFT 步数和学习率没有在引言摘录中单列。"
+          ],
+          "detail": ""
+        },
+        "stage_2": {
+          "status": "skipped",
+          "headline": "不用 PPO 一类强化学习",
+          "summary": "论文写明选择 SFT、拒绝采样和 DPO，而不是更不稳定、更难扩展的 PPO 类算法。因此没有可验证奖励的 RL 阶段。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_3": {
+          "status": "skipped",
+          "headline": "没有单独的开放任务强化学习",
+          "summary": "开放偏好放在 DPO，不单开一轮 rubric 或环境强化学习。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_4": {
+          "status": "skipped",
+          "headline": "没有在线蒸馏",
+          "summary": "旗舰模型被用来提高更小模型的后训练质量，但 405B 自己的流程不是 OPD。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "小模型如何使用 405B 的具体蒸馏损失没有在引言里展开。"
+          ],
+          "detail": ""
+        },
+        "stage_5": {
+          "status": "standard",
+          "headline": "用 DPO 做偏好对齐",
+          "summary": "直接偏好优化是后训练的第三步，用来在 SFT 之后对齐回答，而不是再跑 PPO。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [
+            "reward_hacking"
+          ],
+          "gaps": [
+            "DPO 的 β 和偏好批大小需要回看后训练章节，引言只给出流程名称。"
+          ],
+          "detail": ""
+        }
+      },
+      "tracks": {
+        "data_synthesis": {
+          "status": "standard",
+          "headline": "拒绝采样和合成数据进入 SFT",
+          "summary": "在人工提示上做拒绝采样，再与其他数据源包括合成数据一起微调。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "合成数据的领域和规模没有在引言里列出。"
+          ],
+          "detail": ""
+        },
+        "pretraining": {
+          "status": "core",
+          "headline": "405B dense Transformer，15.6 万亿 token",
+          "summary": "论文明确选择标准 dense Transformer，而不是 MoE，以换取训练稳定性。旗舰模型约 3.8×10^25 FLOPs。常规预训练上下文 8K，随后继续预训练到 128K。",
+          "methods": [
+            "词表 128K，其中约 10 万来自 tiktoken，另加 2.8 万非英语 token。"
+          ],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        }
+      }
+    },
+    {
+      "id": "deepseek-r1",
+      "name": "DeepSeek-R1",
+      "org": "DeepSeek",
+      "date": "2025.01",
+      "params_total": "V3-Base",
+      "params_active": "V3-Base",
+      "base_model": "DeepSeek-V3-Base",
+      "paradigm_type": "serial",
+      "paradigm_label": "GRPO on V3-Base; R1 adds cold start and a second RL",
+      "openness": "Open weights + Nature paper",
+      "source_link": "https://arxiv.org/abs/2501.12948",
+      "source_label": "Nature 2025 / arXiv:2501.12948",
+      "infra_stack": "GRPO",
+      "topology_summary": "R1-Zero 从 V3-Base 直接做规则奖励的 GRPO。R1 在此之前加冷启动，之后再做拒绝采样 SFT 和第二次 RL。",
+      "variants": [
+        {
+          "id": "r1-zero",
+          "label": "R1-Zero",
+          "params_total": "V3-Base",
+          "params_active": "V3-Base",
+          "overrides": {
+            "stage_1": {
+              "status": "skipped",
+              "headline": "RL 之前不做 SFT",
+              "summary": "R1-Zero 直接在 DeepSeek-V3-Base 上做强化学习，不用人类标注的推理轨迹做冷启动。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [
+                "正文摘录没有重写 V3-Base 的参数量。"
+              ],
+              "detail": ""
+            },
+            "stage_2": {
+              "status": "core",
+              "headline": "只用最终答案对错的 GRPO",
+              "summary": "奖励只看最终预测是否对照标准答案，不约束推理过程。训练中回答变长，并出现自我检验。",
+              "methods": [
+                "算法是 GRPO。",
+                "模板要求先写推理过程。"
+              ],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [
+                "curriculum_efficiency"
+              ],
+              "gaps": [],
+              "detail": "Nature 论文把这一设计写成：人类规定的推理格式可能限制探索，所以 R1-Zero 跳过常规 SFT。"
+            },
+            "stage_5": {
+              "status": "skipped",
+              "headline": "没有第二次对齐 RL",
+              "summary": "可读性差和中英混杂留到 R1 处理。R1-Zero 本身没有后续的有用性与无害性 RL。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [],
+              "detail": ""
+            }
+          }
+        },
+        {
+          "id": "r1",
+          "label": "R1",
+          "params_total": "V3-Base",
+          "params_active": "V3-Base"
+        }
+      ],
+      "stages": {
+        "stage_0": {
+          "status": "skipped",
+          "headline": "没有名为 mid-training 的阶段",
+          "summary": "论文从 DeepSeek-V3-Base 进入后训练，没有单独的中期训练章节。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_1": {
+          "status": "core",
+          "headline": "数千条对话式冷启动，后面还有一轮拒绝采样 SFT",
+          "summary": "先收集呈现对话式、偏人类思考过程的冷启动数据，再做第一轮 RL。之后把推理数据和非推理数据一起做拒绝采样 SFT。",
+          "methods": [],
+          "data_And_filtering": "冷启动规模在正文里写成 thousands，细目在补充材料。",
+          "infra_notes": "",
+          "problems_solved": [
+            "forgetting_conflict"
+          ],
+          "gaps": [
+            "冷启动的精确条数和学科配比在正文摘录中没有展开。"
+          ],
+          "detail": ""
+        },
+        "stage_2": {
+          "status": "core",
+          "headline": "第一轮 RL 同时管语言一致性",
+          "summary": "在冷启动之后做强化学习，超参和数据见论文方法与补充材料。这一轮相对 R1-Zero 补上对话格式和语言一致性。",
+          "methods": [
+            "奖励同时覆盖任务表现和语言一致性。"
+          ],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [
+            "reward_hacking"
+          ],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_3": {
+          "status": "standard",
+          "headline": "拒绝采样把非推理数据并进 SFT",
+          "summary": "第二次 SFT 同时纳入推理与非推理数据，用来补写作等不单靠可验证答案的能力。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "非推理数据的构成没有在正文摘录里列成表。"
+          ],
+          "detail": ""
+        },
+        "stage_4": {
+          "status": "skipped",
+          "headline": "没有多教师在线蒸馏",
+          "summary": "论文用拒绝采样和第二次 RL 收口，没有 OPD。蒸馏在文中主要指把大模型的推理模式用于更小的模型，不是这一检查点的训练阶段。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_5": {
+          "status": "core",
+          "headline": "第二次 RL 兼顾有用、无害和推理",
+          "summary": "奖励模型见论文 Reward design。目标是提高 helpfulness 和 harmlessness，同时继续修推理。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [
+            "reward_hacking"
+          ],
+          "gaps": [
+            "第二次 RL 的步数和 KL 系数在正文摘录中没有列出。"
+          ],
+          "detail": ""
+        }
+      },
+      "tracks": {
+        "data_synthesis": {
+          "status": "standard",
+          "headline": "冷启动和拒绝采样，不是环境合成管线",
+          "summary": "冷启动数据要求呈现对话式思考。后续 SFT 使用模型自己的拒绝采样结果，并混入非推理数据。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "没有像后来的 agent 配方那样公开一套容器或工具环境合成流程。"
+          ],
+          "detail": ""
+        },
+        "pretraining": {
+          "status": "skipped",
+          "headline": "直接使用 DeepSeek-V3-Base",
+          "summary": "R1 与 R1-Zero 都从 DeepSeek-V3-Base 开始。这篇论文不重写 V3 的预训练。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "已读的 R1 正文没有重写总参数和激活参数。规模需要回看 V3 报告。"
+          ],
+          "detail": ""
+        }
+      },
+      "architecture": "moe"
+    },
+    {
+      "id": "llama-4",
+      "name": "Llama 4",
+      "org": "Meta",
+      "date": "2025.04",
+      "params_total": "109B / 400B",
+      "params_active": "17B",
+      "base_model": "Llama 4",
+      "paradigm_type": "serial",
+      "paradigm_label": "Light SFT, online RL, light DPO",
+      "openness": "Open weights for Scout and Maverick",
+      "source_link": "https://ai.meta.com/blog/llama-4-multimodal-intelligence/",
+      "source_label": "Meta release note, April 2025",
+      "infra_stack": "Online RL with continual prompt filtering",
+      "topology_summary": "Scout 与 Maverick 的后训练都是轻量 SFT、在线 RL、轻量 DPO。Behemoth 仍在训练，只作为教师预览。",
+      "variants": [
+        {
+          "id": "scout",
+          "label": "Scout",
+          "params_total": "109B",
+          "params_active": "17B",
+          "overrides": {
+            "stage_0": {
+              "status": "core",
+              "headline": "中期训练把可用上下文推到 1,000 万",
+              "summary": "Scout 的预训练和后训练长度都是 256K。发布说明把继续训练称为 mid-training，并用它换取 Scout 的 10M 输入长度。",
+              "methods": [
+                "推理时使用 iRoPE：多数层用 RoPE，交错若干不带位置编码的注意力层，并做温度缩放。"
+              ],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [
+                "中期训练的 token 量和数据配方没有在发布说明里列出。"
+              ],
+              "detail": ""
+            }
+          }
+        },
+        {
+          "id": "maverick",
+          "label": "Maverick",
+          "params_total": "400B",
+          "params_active": "17B",
+          "overrides": {
+            "stage_0": {
+              "status": "skipped",
+              "headline": "发布说明没有单独给出 Maverick 的中期训练",
+              "summary": "10M 上下文和名为 mid-training 的继续训练是对 Scout 写的。Maverick 的公开数字是 400B 总参数、17B 激活、128 个路由专家加 1 个共享专家。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [],
+              "detail": ""
+            },
+            "pretraining": {
+              "status": "standard",
+              "headline": "预训练期间用 Behemoth 做协同蒸馏",
+              "summary": "Behemoth 当时仍在训练，288B 激活、近 2 万亿总参数，没有作为权重发布。Maverick 的协同蒸馏损失动态混合软标签和硬标签，发生在预训练，不是后训练 OPD。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [
+                "Behemoth 的后训练只在预览里描述，不能写成已发布配方。"
+              ],
+              "detail": ""
+            }
+          }
+        }
+      ],
+      "stages": {
+        "stage_0": {
+          "status": "standard",
+          "headline": "发布说明把长上下文继续训练称为 mid-training",
+          "summary": "这一名称明确对应 Scout 的 10M 上下文。Maverick 没有同一组数字。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_1": {
+          "status": "core",
+          "headline": "轻量 SFT，并删掉一半以上的简单样本",
+          "summary": "用 Llama 做评判，去掉超过 50% 被标成简单的 SFT 数据，只在更难的集合上做轻量监督微调。原因是过重的 SFT 会限制后面在线 RL 的探索。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [
+            "forgetting_conflict"
+          ],
+          "gaps": [
+            "保留下来的 SFT 条数没有公布。"
+          ],
+          "detail": ""
+        },
+        "stage_2": {
+          "status": "core",
+          "headline": "多模态在线 RL，并持续丢掉过易的提示",
+          "summary": "训练和过滤交替：用当前模型只保留中等和困难提示，再继续训练。",
+          "methods": [
+            "提示按难度筛选，而不是固定课程。"
+          ],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [
+            "curriculum_efficiency"
+          ],
+          "gaps": [
+            "RL 算法名称、group size 和学习率没有写在发布说明里。"
+          ],
+          "detail": ""
+        },
+        "stage_3": {
+          "status": "standard",
+          "headline": "模态混合用课程，而不是单独的 rubric 阶段",
+          "summary": "Maverick 要同时保住图像、推理和对话。发布说明写的是课程策略，使混合训练不比单模态专家差。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "课程的阶段划分和数据比例没有列出。"
+          ],
+          "detail": ""
+        },
+        "stage_4": {
+          "status": "skipped",
+          "headline": "后训练不是 OPD",
+          "summary": "Scout 和 Maverick 的后训练以轻量 DPO 结束。Maverick 从 Behemoth 得到的协同蒸馏写在预训练。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_5": {
+          "status": "standard",
+          "headline": "轻量 DPO 处理回答质量的边角",
+          "summary": "DPO 放在在线 RL 之后，而且保持轻量，避免再次把模型收得太死。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [
+            "reward_hacking"
+          ],
+          "gaps": [
+            "偏好数据规模没有公布。"
+          ],
+          "detail": ""
+        }
+      },
+      "tracks": {
+        "data_synthesis": {
+          "status": "skipped",
+          "headline": "发布说明没有数据合成流程",
+          "summary": "能核对的是用 Llama 评判删掉简单 SFT 样本，以及 RL 期间持续过滤提示。没有工具环境或仓库合成管线。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "pretraining": {
+          "status": "standard",
+          "headline": "Scout 与 Maverick 都是每 token 激活 17B 的 MoE",
+          "summary": "Scout 为 109B 总参数、16 个专家。Maverick 为 400B 总参数、128 个路由专家，另有一个共享专家，每个 token 还要经过共享专家。Scout 的预训练长度是 256K。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "预训练 token 量和数据配比没有写在这篇发布说明里。"
+          ],
+          "detail": ""
+        }
+      },
+      "architecture": "moe"
+    },
+    {
+      "id": "qwen3-235b-a22b",
+      "name": "Qwen3",
+      "org": "Alibaba",
+      "date": "2025.05",
+      "params_total": "235B",
+      "params_active": "22B",
+      "base_model": "Qwen3-235B-A22B-Base",
+      "paradigm_type": "serial",
+      "paradigm_label": "Long-CoT cold start, reasoning GRPO, mode-fusion SFT, general RL",
+      "openness": "Open weights + technical report",
+      "source_link": "https://arxiv.org/abs/2505.09388",
+      "source_label": "arXiv:2505.09388",
+      "infra_stack": "GRPO",
+      "topology_summary": "旗舰模型四段后训练：长思维链冷启动、数学与代码 GRPO、思考/非思考融合 SFT、通用强化学习。强到弱蒸馏用于更小的模型。",
+      "variants": [
+        {
+          "id": "235b-a22b",
+          "label": "235B-A22B",
+          "params_total": "235B",
+          "params_active": "22B"
+        }
+      ],
+      "stages": {
+        "stage_0": {
+          "status": "skipped",
+          "headline": "长上下文写在预训练第三阶段",
+          "summary": "报告把 4,096 扩到 32,768 的长上下文训练称作预训练最后一阶段，没有使用 mid-training 这个名称。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_1": {
+          "status": "core",
+          "headline": "长思维链冷启动，推理 RL 之后再做模式融合 SFT",
+          "summary": "冷启动覆盖数学、代码、逻辑和 STEM，并尽量少样本、少步数，避免在 RL 前把格式锁死。融合阶段用 /think 与 /no_think 把两种模式放进同一个模型。",
+          "methods": [
+            "查询先丢掉不易验证、以及 72B 指令模型不用思维链也能答对的题。",
+            "回答由 QwQ-32B 生成，再滤掉错答案、重复、猜题和思维与摘要不一致的样本。",
+            "融合 SFT 的思考数据来自第二阶段模型对第一阶段查询的拒绝采样。"
+          ],
+          "data_And_filtering": "冷启动故意把样本数和步数压低。融合数据另含编码、数学、指令、多语言、写作、问答和角色扮演。",
+          "infra_notes": "",
+          "problems_solved": [
+            "forgetting_conflict"
+          ],
+          "gaps": [],
+          "detail": "旗舰模型的前两段建立思考能力，后两段补非思考能力。强到弱蒸馏不是 235B-A22B 的四阶段，而是给更小模型用的。"
+        },
+        "stage_2": {
+          "status": "core",
+          "headline": "3,995 道可验证题上的 GRPO",
+          "summary": "题目不与冷启动重复，对冷启动模型可学、尽量难，并覆盖多个子领域。Qwen3-235B-A22B 的 AIME 2024 在 170 步内从 70.1 升到 85.1。",
+          "methods": [
+            "使用 GRPO。",
+            "大批量和每题多条 rollout，并用 off-policy 提高样本效率。",
+            "用熵把探索维持在稳定或缓慢上升。"
+          ],
+          "data_And_filtering": "3,995 个 query-verifier 对。",
+          "infra_notes": "",
+          "problems_solved": [
+            "curriculum_efficiency"
+          ],
+          "gaps": [
+            "group size 和学习率没有在 4.2 节写成数字。"
+          ],
+          "detail": ""
+        },
+        "stage_3": {
+          "status": "standard",
+          "headline": "非思考数据用自动清单过滤",
+          "summary": "融合阶段的非思考数据覆盖指令遵循、多语言、写作和角色扮演，并用自动生成的清单评估回答。低资源语言额外提高翻译占比。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_4": {
+          "status": "skipped",
+          "headline": "旗舰模型不做强到弱蒸馏",
+          "summary": "报告写明强到弱蒸馏用来替代小模型的四阶段训练，包括离策略回答蒸馏和在线 logit 蒸馏。235B-A22B 走的是四阶段本身。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": "小模型蒸馏大约只用四阶段训练 GPU 时的 1/10，并提高 Pass@1 和 Pass@64。这不是本行旗舰模型的阶段。"
+        },
+        "stage_5": {
+          "status": "standard",
+          "headline": "第四阶段是通用领域强化学习",
+          "summary": "模式融合之后，报告用通用领域 RL 提高下游任务表现，并支持用思考 token 预算控制推理深度。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [
+            "overthinking_latency"
+          ],
+          "gaps": [
+            "通用 RL 的奖励模型、提示规模和训练步数没有在摘要层展开。"
+          ],
+          "detail": ""
+        }
+      },
+      "tracks": {
+        "data_synthesis": {
+          "status": "standard",
+          "headline": "用 Qwen2.5 系列合成预训练文本，后训练另有拒绝采样",
+          "summary": "预训练用 Qwen2.5-Math 和 Qwen2.5-Coder 合成教材、问答、指令和代码，并用 Qwen2.5-VL 从 PDF 抽文本。后训练冷启动的回答来自 QwQ-32B。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "合成预训练文本的条数只写到万亿量级，没有分域表。"
+          ],
+          "detail": ""
+        },
+        "pretraining": {
+          "status": "standard",
+          "headline": "36 万亿 token，分通用、推理和长上下文三段",
+          "summary": "235B 总参数、每 token 激活 22B，128 个专家中激活 8 个，没有共享专家。第一段超过 30 万亿 token、序列 4,096；第二段约 5 万亿更高比例的 STEM 与代码；第三段在 32,768 长度上训练数千亿 token。",
+          "methods": [
+            "RoPE base 从 1 万提到 100 万，并用 YARN 和 Dual Chunk Attention 在推理时再把长度能力提高约四倍。",
+            "MoE 使用 global-batch load-balancing loss。"
+          ],
+          "data_And_filtering": "119 种语言和方言。实例级标注超过 30 万亿 token 后做配比。",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        }
+      },
+      "architecture": "moe"
+    },
+    {
+      "id": "kimi-k2",
+      "name": "Kimi K2",
+      "org": "Moonshot",
+      "date": "2025.07",
+      "params_total": "1.04T",
+      "params_active": "32B",
+      "base_model": "Kimi-K2-Base",
+      "paradigm_type": "serial",
+      "paradigm_label": "Agentic SFT then joint verifiable and self-critic RL",
+      "openness": "Open base and instruct weights, Modified MIT",
+      "source_link": "https://arxiv.org/abs/2507.20534",
+      "source_label": "arXiv:2507.20534",
+      "infra_stack": "MuonClip; Gym-like RL",
+      "topology_summary": "先用大规模工具合成数据做 SFT，再在同一套强化学习里同时使用可验证奖励和自评 rubric。",
+      "stages": {
+        "stage_0": {
+          "status": "standard",
+          "headline": "上下文扩展写在预训练后期",
+          "summary": "4,096 长度上训练 15.5 万亿 token 之后，报告另用 4k 上 4000 亿 token 和 32k 上 600 亿 token 做上下文阶段，并用 YaRN 扩到 128k。报告没有把它命名为 mid-training。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "4000 亿与 600 亿 token 的上下文阶段是否完全独立于 15.5 万亿主训练，需要对照原文小节，不在这里合并成一次 mid-training。"
+          ],
+          "detail": ""
+        },
+        "stage_1": {
+          "status": "core",
+          "headline": "用 Muon 做指令微调，工具轨迹来自三步合成",
+          "summary": "后训练继续用 Muon。指令数据强调提示多样和回答质量，候选回答来自 K1.5 与内部专家模型，再由模型或人过滤。",
+          "methods": [
+            "工具规格可以来自真实工具，也可以由模型合成。",
+            "对每个工具集合生成 agent 和任务，再生成多步调用轨迹。"
+          ],
+          "data_And_filtering": "",
+          "infra_notes": "论文建议 K2 的微调也使用 Muon，因为基座是用 Muon 预训练的。",
+          "problems_solved": [
+            "env_synthesis"
+          ],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_2": {
+          "status": "core",
+          "headline": "可验证任务与自评奖励放在同一次 RL",
+          "summary": "可验证奖励覆盖大量任务。主观任务由模型对自己的两次输出做比较。难度用 SFT 模型的 pass@k 控制在中等。",
+          "methods": [
+            "规则能判定的指令用代码解释器；需要理解约束的用 LLM 评判，并加一层检查虚假完成声明。",
+            "可验证任务上的 on-policy 样本会回头更新 critic，把客观信号带进主观评判。"
+          ],
+          "data_And_filtering": "只保留对 SFT 模型既不太易也不太难的题。",
+          "infra_notes": "",
+          "problems_solved": [
+            "curriculum_efficiency",
+            "reward_hacking"
+          ],
+          "gaps": [
+            "RL 的 group size、学习率和总步数没有在已读小节里列出。"
+          ],
+          "detail": ""
+        },
+        "stage_3": {
+          "status": "core",
+          "headline": "开放任务用 self-critic rubric",
+          "summary": "自评 rubric 覆盖有用性、创造性、推理深度、事实性和安全。评判能力先在 SFT 阶段用公开和内部偏好数据初始化。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [
+            "reward_hacking"
+          ],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_4": {
+          "status": "skipped",
+          "headline": "没有在线蒸馏阶段",
+          "summary": "报告的收口是联合强化学习，不是 OPD。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        },
+        "stage_5": {
+          "status": "standard",
+          "headline": "开放对齐并进联合 RL，而不是再单开一轮",
+          "summary": "主观奖励和可验证奖励在同一个 RL 框架里更新。critic 会随策略继续用可验证信号校正。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        }
+      },
+      "tracks": {
+        "data_synthesis": {
+          "status": "core",
+          "headline": "工具规格、agent 与任务、轨迹，三步合成",
+          "summary": "先建真实工具与合成工具的规格库，再为抽到的工具集合生成 agent 和任务，最后生成完成任务的多步轨迹。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": "这是 K2 后训练里写得最具体的数据部分，服务的是工具使用，不是 SWE 容器农场。"
+        },
+        "pretraining": {
+          "status": "core",
+          "headline": "MuonClip 训完 15.5 万亿 token，没有 loss spike",
+          "summary": "1.04 万亿参数，激活 32B。384 个专家，MLA，隐藏维度 7168。前 10 万亿 token 学习率 2e-4，后 5.5 万亿余弦降到 2e-5。全局 batch 约 6700 万 token，权重衰减 0.1。",
+          "methods": [
+            "QK-Clip 把注意力 logits 限制在 τ=100。",
+            "数据域是网页、代码、数学和知识。"
+          ],
+          "data_And_filtering": "",
+          "infra_notes": "没有采用 DualPipe，因为对超过一万亿参数的模型，它带来的显存和流水线气泡成本过高。",
+          "problems_solved": [],
+          "gaps": [],
+          "detail": ""
+        }
+      },
+      "architecture": "moe"
+    },
+    {
+      "id": "intellect-3.1-106b",
+      "name": "INTELLECT-3.1",
+      "org": "Prime Intellect",
+      "date": "2026.02 - 05",
+      "params_total": "106B",
+      "params_active": "12B",
+      "base_model": "GLM-4.5-Air-Base",
+      "paradigm_type": "async_rl",
+      "paradigm_label": "SFT + Massively Parallel Multi-Env Async RLVR",
+      "openness": "Full Weights + 6.98M SFT & 70K RL Data + prime-rl + Environments Hub",
+      "source_link": "https://huggingface.co/PrimeIntellect/INTELLECT-3.1",
+      "source_label": "HF 模型卡：PrimeIntellect/INTELLECT-3.1",
+      "infra_stack": "prime-rl + verifiers + Environments Hub (500+ Envs)",
+      "topology_summary": "中心辐射式（Hub-and-Spoke）异步强化架构：基于与 Rufus-Air 相同的 106B 基座，在 698 万条 SFT 后直接进入单一的大规模 `prime-rl` 异步循环，同时挂载 Math、Code、Science、Deep Research 与 SWE 500+ 环境，并将首轮思考与容器拉起在时间上重叠。",
+      "stages": {
+        "stage_0": {
+          "status": "skipped",
+          "headline": "直接基于 GLM-4.5-Air-Base 启动",
+          "summary": "模型卡写明基座是 GLM-4.5-Air-Base，规模 106B、激活 12B。没有单独的 mid-training 小节。",
+          "methods": [
+            "基座模型直接进入大规模 SFT 阶段"
+          ],
+          "data_And_filtering": "N/A",
+          "infra_notes": "适配 prime-rl 分布式拓扑",
+          "problems_solved": [],
+          "gaps": [
+            "模型卡没有说明是否跳过 mid-training，只能确认它没有把这一步写成配方。",
+            "与 Rufus-Air 使用同一基座这件事，可以由两边都指向 GLM-4.5-Air-Base 核对；两边的后训练是否因此可直接对比，模型卡没有讨论。"
+          ],
+          "detail": "INTELLECT-3.1 的 Hugging Face 模型卡把它定义成 INTELLECT-3 的继续训练：在数学、代码、软件工程和 agent 任务上再做强化学习。基座字段是 zai-org/GLM-4.5-Air-Base。模型卡没有描述 Late Mid-Training。"
+        },
+        "stage_1": {
+          "status": "core",
+          "headline": "模型卡没有给出 698 万条 SFT",
+          "summary": "3.1 被写成在 INTELLECT-3 之上继续做 RL。模型卡没有列出 SFT 样本数。",
+          "methods": [
+            "模型卡确认的训练栈是 prime-rl 和 verifiers",
+            "权重、框架和环境以 MIT / Apache 2.0 开放。卡片没有把 6.98M SFT 数据列成发布物"
+          ],
+          "data_And_filtering": "未在 INTELLECT-3.1 模型卡中给出。",
+          "infra_notes": "推理示例是 2 张 H200 上的 vLLM，tensor parallel 2。",
+          "problems_solved": [
+            "forgetting_conflict"
+          ],
+          "gaps": [
+            "6.98M / 698 万条 SFT、以及“完全开源该 SFT 集”只出现在旧看板，不在已读的 3.1 模型卡里。",
+            "卡片指向的技术报告是 INTELLECT-3，不能把 3 的 SFT 数字自动记到 3.1 上。"
+          ],
+          "detail": "已核对的模型卡只说训练使用 prime-rl，环境用 verifiers 库构建，并发布在 Environments Hub。它把“technical report”链接到 INTELLECT-3 的 PDF，而不是一份单独的 3.1 报告。因此 6.98M SFT、去重和去污染不能从 3.1 卡片证实。"
+        },
+        "stage_2": {
+          "status": "core",
+          "headline": "在数学、代码、软件工程和 agent 任务上继续做 RL",
+          "summary": "模型卡确认额外 RL 的任务范围是 math、coding、software engineering 和 agentic tasks，框架是 prime-rl。",
+          "methods": [
+            "继续训练的任务域：数学、代码、软件工程、agent",
+            "环境由 verifiers 构建并放在 Environments Hub"
+          ],
+          "data_And_filtering": "模型卡未给出题库规模或在线过滤规则。",
+          "infra_notes": "prime-rl。卡片没有描述训推一致性或路由重放。",
+          "problems_solved": [
+            "env_synthesis",
+            "curriculum_efficiency"
+          ],
+          "gaps": [
+            "旧稿的 500+ 环境、698 万条之后进入单一异步环、以及首轮思考与沙盒预热重叠，都不在 3.1 模型卡中。",
+            "INTELLECT-3 技术报告摘要写的是在 GLM-4.5-Air-Base 上做 SFT 和 RL，并把 RL 扩到 512 张 H200。那是 3 而不是 3.1 的句子，不并进本阶段。"
+          ],
+          "detail": "这是模型卡对 3.1 本身的主要说明：它不是从 base 重新走完 INTELLECT-3，而是在 INTELLECT-3 上继续 RL。环境在 Environments Hub。卡片没有写异步调度、环境个数、组大小或难度过滤。"
+        },
+        "stage_3": {
+          "status": "core",
+          "headline": "Agent 任务在继续 RL 的范围内",
+          "summary": "Agent 任务包含在继续 RL 的范围内。模型卡没有单独的 Deep Research 或多跳搜索阶段。",
+          "methods": [
+            "环境在 Environments Hub，可用 verifiers 复现。具体环境名单要以 Hub 为准，卡片没有贴出清单。"
+          ],
+          "data_And_filtering": "未给出。",
+          "infra_notes": "未描述沙盒预热与首轮思考重叠。",
+          "problems_solved": [
+            "env_synthesis"
+          ],
+          "gaps": [
+            "Deep Research、500+ 环境这些旧稿细节未核到。"
+          ],
+          "detail": "模型卡把 agentic tasks 和 software engineering 并列为继续 RL 的内容，并说明 prime-rl 面向 agent RL、支持多轮和工具。这句话来自卡片对 prime-rl 的指向；3.1 卡片本身没有展开多轮协议。"
+        },
+        "stage_4": {
+          "status": "skipped",
+          "headline": "模型卡没有写蒸馏",
+          "summary": "模型卡没有蒸馏或跨阶段合并。",
+          "methods": [
+            "依靠多环境混合采样比例调节各领域能力平衡"
+          ],
+          "data_And_filtering": "N/A",
+          "infra_notes": "N/A",
+          "problems_solved": [],
+          "gaps": [
+            "不能根据“异步 RL 范式”推断他们做了或没做蒸馏。"
+          ],
+          "detail": "3.1 的公开说明停在继续 RL。没有 OPD、多教师或检查点融合的段落。"
+        },
+        "stage_5": {
+          "status": "standard",
+          "headline": "模型卡没有通用 RLHF 阶段",
+          "summary": "模型卡没有通用 RLHF 或思维链压缩阶段。",
+          "methods": [
+            "混合规则验证器与 LLM Judge 奖励信号"
+          ],
+          "data_And_filtering": "开源通用指令校验集",
+          "infra_notes": "集成在 `verifiers` 评判管线中",
+          "problems_solved": [
+            "reward_hacking"
+          ],
+          "gaps": [
+            "若这些阶段存在，它们不在 INTELLECT-3.1 模型卡里。"
+          ],
+          "detail": "已核对文本没有偏好模型、KL 约束或 overthinking 惩罚。"
+        }
+      },
+      "tracks": {
+        "data_synthesis": {
+          "status": "skipped",
+          "headline": "模型卡没有数据合成配方",
+          "summary": "环境用 verifiers 构建并放在 Environments Hub。卡片没有说明这些环境是怎么合成的。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "6.98M SFT 和 500+ 环境都未在 3.1 模型卡中出现。"
+          ],
+          "detail": ""
+        },
+        "pretraining": {
+          "status": "skipped",
+          "headline": "模型卡不写预训练，只给出 GLM-4.5-Air-Base",
+          "summary": "3.1 是在 INTELLECT-3 上继续做 RL。基座字段是 GLM-4.5-Air-Base，106B、激活 12B。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "预训练配方不在这张模型卡里。"
+          ],
+          "detail": ""
+        }
+      },
+      "architecture": "moe"
+    },
+    {
+      "id": "glm-5-744b",
+      "name": "GLM-5",
+      "org": "Z.ai (智谱)",
+      "date": "2026.02 - 06",
+      "params_total": "744B",
+      "params_active": "40B",
+      "base_model": "GLM-5-Base",
+      "paradigm_type": "opd",
+      "paradigm_label": "Error-Masked SFT + Multi-Domain RL + Cross-Stage OPD",
+      "openness": "Open Weights + Detailed Report + Open-source `slime` Framework",
+      "source_link": "https://arxiv.org/abs/2602.15763",
+      "source_label": "arXiv:2602.15763 & slime Blog",
+      "infra_stack": "slime + vime (PD-Disaggregated Rollout + Delta Weight Sync)",
+      "topology_summary": "采用“带错误掩码 (Error Masking) 的专家轨迹 SFT → 四大域二元奖励混合 RL → 跨阶段在线策略蒸馏 (Cross-Stage OPD)”的回流收口拓扑，将各历史阶段的最优 Checkpoint 重新蒸馏回终版模型。",
+      "stages": {
+        "stage_0": {
+          "status": "standard",
+          "headline": "32K → 128K → 200K 的 mid-training，而不是 1M",
+          "summary": "上下文分三段加长：32K（1T token）、128K（500B）、200K（50B）。软件工程序列大约 160B 不重复 token。论文的后训练 SFT 上下文是 202,752，不是一百万。",
+          "methods": [
+            "三段式加长窗口，后段上采样长文档和合成 agent 轨迹",
+            "仓库级代码、commit diff、issue、PR 和相关源文件拼成训练序列；放宽仓库筛选后大约 1000 万组 issue–PR，再在单条 issue 上加严质量过滤",
+            "长上下文数据含书籍、论文和通用语料，以及类似 NextLong / EntropyLong 的合成长程依赖；200K 阶段加入少量 MRCR 式多轮召回数据"
+          ],
+          "data_And_filtering": "issue–PR 过滤后约 160B unique tokens。自然长文档经过 PPL、去重和长度过滤，并上采样知识密集领域。",
+          "infra_notes": "模型规模是 744B 总参数、40B 激活，256 个专家、80 层。DSA 把总规模推到 744B、训练预算约 28.5T token。这是架构和预训练设置，不是后训练 infra 的全部。",
+          "problems_solved": [],
+          "gaps": [
+            "旧稿写的 1M 上下文窗口与本报告不符。SFT 明确写的是 202,752 token。",
+            "已核对的报告给出一个 744B / 40B 激活的 GLM-5。GLM-5.2 没有单独的规模或配方，因此不另开一行。"
+          ],
+          "detail": "Mid-training 沿用 GLM-4.5 的框架，但加了训练量和最大长度。相对 GLM-4.5 的 128K 上限，多出来的 200K 阶段用来处理超长文档和多文件仓库。作者观察到 200K 阶段甚至能提高 128K 窗口内的长上下文表现。"
+        },
+        "stage_1": {
+          "status": "core",
+          "headline": "多任务 SFT：交错思考、保留思考、按轮开关",
+          "summary": "SFT 扩大了 Agent 和代码数据，并引入三种思考方式。错误轨迹片段留在上下文里，但损失被 mask 掉。",
+          "methods": [
+            "语料分 General Chat、Reasoning、Coding & Agent。最大长度 202,752",
+            "Interleaved Thinking：每次回答和工具调用前都思考。Preserved Thinking：代码 agent 跨轮保留全部思考块。Turn-level Thinking：简单请求可关掉思考",
+            "逻辑题用可验证问题加拒绝采样。数学和科学只保留对 GLM-4.7 很难、但仍可解的题",
+            "代码和 Agent 轨迹里的错误片段保留，损失掩码，让模型看到纠错而不强化错误动作"
+          ],
+          "data_And_filtering": "通用聊天收紧文风，角色扮演用自动和人工过滤。推理数据按难度过滤。Agent 轨迹来自执行环境，再用专家 RL 和拒绝采样提高质量。",
+          "infra_notes": "聊天模板随三种思考模式更新。",
+          "problems_solved": [
+            "forgetting_conflict",
+            "env_synthesis"
+          ],
+          "gaps": [
+            "三类 SFT 的样本条数和损失权重没有在 3.1 节给出。"
+          ],
+          "detail": "后训练的总顺序是：多任务 SFT，然后推理和 agent 的专项 RL，再是通用 RL，最后用 on-policy cross-stage distillation 收口，用来减轻前面阶段把已有能力训掉的问题。错误掩码发生在 SFT 的代码/Agent 轨迹上，不是一个独立的后处理阶段。"
+        },
+        "stage_2": {
+          "status": "core",
+          "headline": "IcePop 修正训推偏差，四域混合推理 RL",
+          "summary": "推理 RL 在 GRPO 上加 IcePop，并去掉 KL 项。DSA 的 indexer 使用确定性的 torch.topk，且默认冻结 indexer。",
+          "methods": [
+            "区分训练策略和采样用的推理策略。IcePop 去掉原公式里的 KL 正则以加快提升。训练完全 on-policy，group size 32，batch size 32。论文正文用符号给出阈值，没有在散文里重复数值",
+            "DSA indexer 若使用非确定性 CUDA top-k，RL 几步后会掉点并伴随熵骤降。训练引擎改用 torch.topk。默认冻结 indexer",
+            "数学、科学、代码、工具集成推理四域混合，总体大致均衡，各域用自己的二值结果奖励"
+          ],
+          "data_And_filtering": "数学和科学来自开源集以及和标注供应商共建的数据，难度过滤对准 GLM-4.7 很少做对或一直失败、但更强教师（文中举例 GPT-5.2 xhigh 与 Gemini 3 Pro Preview）仍能解的题。代码覆盖竞赛题和科学编程。TIR 复用更难的数学/科学子集，并另建必须用外部工具的 STEM 题。",
+          "infra_notes": "slime 是统一后训练框架。这一阶段的训推一致性重点是 DSA indexer 的确定性 top-k，论文把它类比成 MoE 的 routing replay，但说明不能直接把 indexer 的 top-k 全存下来。",
+          "problems_solved": [
+            "moe_off_policy",
+            "curriculum_efficiency"
+          ],
+          "gaps": [
+            "IcePop 的截断阈值只出现在公式里，卡片不把未抄出的符号写成具体小数。"
+          ],
+          "detail": "作者没有把 GLM-5 的推理 RL 写成 MoE routing replay。模型用的是 DSA。直接存储 indexer 每步 top-k 因为 k 远大于 MoE 专家数，存储和通信都不划算，所以改用确定性 top-k 算子。"
+        },
+        "stage_3": {
+          "status": "core",
+          "headline": "异步 Agent RL：TITO 网关和超过一万个可验证环境",
+          "summary": "代码和搜索 agent 走完全异步、训推解耦的框架。Token-in-Token-out 避免重分词；环境包括一万以上的真实 SWE、终端任务和高难度多跳搜索。",
+          "methods": [
+            "Multi-Task Rollout Orchestrator 把推理和训练解开，避免长程 rollout 让同步 RL 的 GPU 空等",
+            "TITO 网关按动作保留精确 token，消除重分词错位",
+            "Direct Double-sided Importance Sampling 在 rollout log-prob 上做 token 级截断，不保存历史策略检查点",
+            "DP-aware routing 用来提高长上下文 MoE 推理的 KV cache 复用"
+          ],
+          "data_And_filtering": "可验证环境覆盖三个域：超过 10K 的真实软件工程任务、终端任务，以及高难度多跳搜索。更细的构造在论文第 4 节。",
+          "infra_notes": "slime 用 HTTP 暴露 rollout。多轮场景把 prefill 和 decode 拆开，避免长前缀 prefill 打断正在进行的 decode。Rollout 用 FP8，并使用 MTP 缩短长尾。故障靠心跳。",
+          "problems_solved": [
+            "reward_hacking",
+            "env_synthesis"
+          ],
+          "gaps": [
+            "10K 是三类合计还是仅 SWE，句子的并列关系可以有两种读法，卡片保持论文原句，不改写成单一数字。"
+          ],
+          "detail": "Agent RL 要解决的是长程轨迹的吞吐和异步 off-policy，不是再做一轮推理题 GRPO。论文把环境扩展写成 SWE、终端和搜索三类，数量级是“over 10K real-world Software Engineering (SWE), terminal tasks, and high-difficulty multi-hop search tasks”。"
+        },
+        "stage_4": {
+          "status": "core",
+          "headline": "用前面阶段的检查点做 on-policy 跨阶段蒸馏",
+          "summary": "多阶段 RL 会丢掉先学的能力。最后用前面阶段的检查点当教师，在教师各自的 RL 提示上做 on-policy 蒸馏。group size 设为 1，batch size 1024。",
+          "methods": [
+            "教师是先前阶段的最终检查点，提示来自这些教师的 RL 训练集并按比例混合",
+            "优势项换成与教师 logit 的差距（stop-gradient），不再靠一组采样估计优势",
+            "教师 logit 目前从推理引擎取。group size 1，batch size 1024"
+          ],
+          "data_And_filtering": "提示混合自 Reasoning RL 和 General RL 等先前阶段的训练集。具体比例写成 “appropriate proportions”，没有数值表。",
+          "infra_notes": "因为优势来自教师差距，不再需要每条 prompt 采一大组样本。",
+          "problems_solved": [
+            "forgetting_conflict"
+          ],
+          "gaps": [
+            "教师检查点的完整名单和混合权重没有表。"
+          ],
+          "detail": "这一阶段的目的写得很具体：把 SFT、Reasoning RL 和 General RL 里已经获得、又被后续阶段冲掉的技能拉回来。它是流水线的最后一步，而不是插在 Agent RL 之前。"
+        },
+        "stage_5": {
+          "status": "standard",
+          "headline": "通用 RL：正确性、情商、任务质量三套目标",
+          "summary": "通用 RL 把目标拆成基础正确性、情感智识和任务质量，奖励同时用规则、ORM 和 GRM。另外加入人工撰写的回答当文风锚点。",
+          "methods": [
+            "基础正确性覆盖指令遵循、逻辑、事实、幻觉和语言流畅，被写成后续优化的前提",
+            "规则奖励精确但只能覆盖可判定方面；ORM 方差低但容易被 hack；GRM 更抗 hack 但方差更高。三者混用",
+            "加入高质量人工回答，避免优化只收敛到冗长、套话的模型文风"
+          ],
+          "data_And_filtering": "任务覆盖写作、文本处理、主客观问答、角色扮演和翻译。人工回答作为风格锚，不是唯一的训练文本。",
+          "infra_notes": "通用 RL 同样走 slime 的可定制 rollout。",
+          "problems_solved": [
+            "overthinking_latency"
+          ],
+          "gaps": [
+            "三维奖励的混合系数、人工回答条数和 KL 约束没有在 3.4 节给出。"
+          ],
+          "detail": "论文的顺序是专项 RL 在前、General RL 在后，再接跨阶段蒸馏。General RL 不是一个可有可无的润色，它有独立的三维目标和混合奖励。跨阶段蒸馏的正文点名要恢复的是 Reasoning RL 和 General RL 的技能。"
+        }
+      },
+      "tracks": {
+        "data_synthesis": {
+          "status": "standard",
+          "headline": "仓库数据主要写在 mid-training，不是单独一章",
+          "summary": "放宽仓库筛选后大约 1000 万组 issue–PR，过滤后约 160B 不重复 token，并检索更多相关文件拼进训练序列。SFT 另有拒绝采样和错误片段掩码。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "这是 mid-training 和 SFT 里的数据构造，论文没有再单列一个叫数据合成的阶段。"
+          ],
+          "detail": ""
+        },
+        "pretraining": {
+          "status": "standard",
+          "headline": "744B / 40B 激活，DSA，训练预算约 28.5T token",
+          "summary": "256 个专家、80 层。DSA 用来降低训练和推理成本。这些数字来自架构和预训练设置，不是后训练超参。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "预训练语料配比没有在已摘的后训练和 mid-training 小节里展开。"
+          ],
+          "detail": ""
+        }
+      },
+      "architecture": "moe"
+    },
+    {
+      "id": "minimax-m2.5",
+      "name": "MiniMax-M2",
+      "org": "MiniMax",
+      "date": "2026.02 - 07",
+      "params_total": "229.9B",
+      "params_active": "9.8B",
+      "base_model": "MiniMax-M2/M3 MoE",
+      "paradigm_type": "async_rl",
+      "paradigm_label": "200K Automated Multilingual Docker Envs + Forge RL",
+      "openness": "Open Weights (M2.5) + Tech Report + Deep Engineering Blogs",
+      "source_link": "https://arxiv.org/abs/2605.26494",
+      "source_label": "arXiv:2605.26494",
+      "infra_stack": "Forge RL + 200,000+ Multilingual SWE Sandboxes",
+      "topology_summary": "独创“双环耦合拓扑”：上环为自动化环境合成管线（Agent 根据编译报错自动修复构建脚本，从 GitHub PR 合成 20 万+ 覆盖 10 余种语言的真实容器）；下环为 Forge RL 训练引擎（按 Bugfix / Feature / Performance 三类任务路由不同奖励信号，并联合优化交互轮数）。",
+      "stages": {
+        "stage_0": {
+          "status": "standard",
+          "headline": "旗舰 M2 为 229.9B / 9.8B 激活，上下文 192K",
+          "summary": "报告给出的旗舰 M2 是 229.9B 总参数、每 token 激活 9.8B，原生上下文 192K。没有单独的多语言仓库退火章节。",
+          "methods": [
+            "多语言跨文件依赖图与 PR 演进历史预热"
+          ],
+          "data_And_filtering": "多语言 GitHub 活跃仓库语料",
+          "infra_notes": "极低激活比 (230B/A9.8B) 高吞吐训练",
+          "problems_solved": [],
+          "gaps": [
+            "旧稿的 M3 428B/23B 不在本报告的模型定义里。",
+            "多语言仓库退火的语料配比未核到。上下文是 192K，不是一份单独的 Stage 0 配方。"
+          ],
+          "detail": "M2 是 62 层 decoder-only MoE，256 个细粒度专家，sigmoid 门控，GQA 全注意力，并带 MTP 模块。系列叙事是 M2 → M2.5 → M2.7。M2.7 会自己排查失败的训练、修改自己的 agent scaffold，并在 ML 工程任务上做多轮自改进。报告没有把“10 余种语言的仓库级退火”写成预训练之后的一个阶段。"
+        },
+        "stage_1": {
+          "status": "core",
+          "headline": "SFT 学的是思考与动作交错，而不是先写 Spec",
+          "summary": "SFT 把思考痕迹插在中间动作和观察之间。语料覆盖 chat、reasoning、code、cowork，用领域奖励做拒绝采样后再清洗。",
+          "methods": [
+            "与一整段长 CoT 不同，监督轨迹是思考、动作、观察交错",
+            "大规模拒绝采样对着领域奖励，再做多阶段清洗"
+          ],
+          "data_And_filtering": "四个域：chat、reasoning、code、cowork，包含单轮推理和多轮 agent。",
+          "infra_notes": "SFT 的目标是给后面的 Forge RL 一个会交错思考的初值。",
+          "problems_solved": [
+            "overthinking_latency"
+          ],
+          "gaps": [
+            "Spec-first planning 未在 SFT 或 RL 章节出现，不能保留成已核实方法。"
+          ],
+          "detail": "报告第 5 节没有把“动手前先写 Spec”写成 SFT 方法。交错思考在第 7 节被当成 agent 机制，评测时 M2.5 和 M2.7 都打开 thinking，并使用这套轨迹协议。"
+        },
+        "stage_2": {
+          "status": "core",
+          "headline": "六步 SWE 流水线：按任务类型改变可验证奖励",
+          "summary": "从合并的 GitHub PR 出发，用 agent 循环修构建脚本，再按 bug、feature、performance 使用不同测试奖励。报告没有给出 20 万个容器这个数字。",
+          "methods": [
+            "六步：爬取并过滤带测试的已合并 PR；用 agent 根据执行反馈迭代 Dockerfile 和构建脚本，专门处理 Java、Go、Rust、C++ 的工具链差异；给 PR 打任务类型标签；按类型构造测试奖励；再用模型检查任务是否含糊",
+            "Bug：抽取 Fail-to-Pass 和 Pass-to-Pass，金补丁必须通过。P2P 用来防止修 bug 时引入新错",
+            "Feature：不套 F2P/P2P，改为抽取新增测试点并要求金补丁通过",
+            "Performance：抽取能稳定显示优化前后性能差的 P2P 测试"
+          ],
+          "data_And_filtering": "只保留最终合并、并通过规则过滤、且带相关测试的 PR。非 Python 环境因为依赖和版本冲突更难合成，所以用带专家知识的 agent 循环。",
+          "infra_notes": "环境合成是数据管线的一部分。训练系统本身是 Forge，不是这六步脚本。",
+          "problems_solved": [
+            "env_synthesis",
+            "curriculum_efficiency"
+          ],
+          "gaps": [
+            "“20 万以上容器”和“10 余种语言”没有出现在已读的 4.1 节。语言例子是 Java、Go、Rust、C++，并说明非 Python 更不可靠。",
+            "性能奖励是否直接使用耗时的连续值，正文写的是抽取能验证稳定且显著性能差的 P2P 测试，没有写成连续吞吐奖励公式。"
+          ],
+          "detail": "Agentic coding 除了 SWE，还有 AppDev 和终端任务。SWE 这条线的重点是：原始 PR 不能直接用，必须先变成可运行环境，再按任务类型改变奖励定义。性能任务没有“修 bug”过程，所以奖励来自优化前后可测量的差异。"
+        },
+        "stage_3": {
+          "status": "core",
+          "headline": "Forge 用 CISPO 训练长轨迹，奖励里有过程分",
+          "summary": "策略优化是 CISPO：重要性权重非对称截断，下界为 0，上界限制过大更新，权重本身 stop-gradient。轨迹最长到 192K token。",
+          "methods": [
+            "动作是一次 LLM completion，环境包括工具和 agent harness。信用分配仍在整条轨迹上做",
+            "优势是带轨迹级基线的 reward-to-go",
+            "过程奖励惩罚语言混用和工具格式错误，并奖励结构清楚的中间推理。结果奖励单独存在，摘录在过程奖励处截断，没有把全部公式抄入"
+          ],
+          "data_And_filtering": "Cowork 轨道覆盖深搜索、办公、金融表格和幻灯片。深搜索用 guide-and-rewrite 把种子问题改到能区分强弱 agent，并要求答案落在实际检索到的证据上，而不是模型记忆。",
+          "infra_notes": "Forge 分成 Agent Side、训练/推理 Side，以及 Gateway 和 Data Pool。Agent 可以是白盒（框架看得到上下文管理）或黑盒 API。调度要同时对付吞吐、稳定性和任意 agent 结构。MTP 用 top-K KL 与策略一起训练，避免 RL 过程中草案接受率掉下去。",
+          "problems_solved": [
+            "overthinking_latency",
+            "env_synthesis"
+          ],
+          "gaps": [
+            "旧稿的 -20% 轮数和 -37% 挂钟时间未在报告的 RL 或评测节核到。",
+            "CISPO 的具体 ε 只在公式中，卡片不补未摘出的小数。"
+          ],
+          "detail": "报告没有把 BrowseComp 上“轮数减少 20%、挂钟时间减少 37%”写进 RL 章节。评测里 M2.7 的 BrowseComp 是 77.8，内部 RISE 是 64.3，相对 M2.5 的 RISE 50.2 高 14 分。这些是 M2.7 的结果，不是 M2.5 的训练配方数字。"
+        },
+        "stage_4": {
+          "status": "standard",
+          "headline": "没有单独的轨迹融合蒸馏",
+          "summary": "报告没有一个名叫“多领域轨迹融合”的蒸馏阶段。M2.7 的自进化是模型修改自己的 scaffold 并复盘失败训练。",
+          "methods": [
+            "M2.7 自主排查失败训练并修改 agent scaffold。"
+          ],
+          "data_And_filtering": "未描述跨任务轨迹混合的采样比。",
+          "infra_notes": "自进化仍然通过 Forge 的训练和评测闭环，而不是单独的蒸馏集群。",
+          "problems_solved": [
+            "forgetting_conflict"
+          ],
+          "gaps": [
+            "旧稿“多专家轨迹混合回流”未核到。"
+          ],
+          "detail": "系列改进体现在 M2 到 M2.5 到 M2.7 的评测，而不是把多个专家蒸馏回一个学生。M2.7 会分流失败的训练运行、按任务修改 scaffold，并在 MLE Bench Lite 一类任务上做多轮自改进。这和 OPD 不是同一件事。"
+        },
+        "stage_5": {
+          "status": "standard",
+          "headline": "对话和角色扮演有自己的数据与 RLHF",
+          "summary": "开放对话和角色扮演有独立数据轨和 RLHF 信号，但不是流水线最后一步的通用润色。",
+          "methods": [
+            "角色扮演奖励来自线上隐式和显式反馈，并做去偏",
+            "用熵监控减轻 reward hacking"
+          ],
+          "data_And_filtering": "生成后用规则和模型评估器检查。角色扮演还用 Best-of-N 和周期性片段改写。",
+          "infra_notes": "MTP 与 RL 策略用 top-K KL 一起训练。",
+          "problems_solved": [
+            "overthinking_latency"
+          ],
+          "gaps": [
+            "“每天每并发成本”和 9.8B 激活带来的线上成本，报告只把 9.8B 写成设计原则，没有给出并发成本表。"
+          ],
+          "detail": "通用对话数据含长 CoT，分写作、问答和多轮。写作可以带文件系统。工具样本和无工具样本都有。角色扮演用真实产品反馈做 RLHF，先用因果推断和分层去偏去掉噪声，并监控熵以减轻 reward hacking。原生上下文 192K，MTP 在 RL 中持续合训，这是效率手段，不是一个末置的 overthinking RL。"
+        }
+      },
+      "tracks": {
+        "data_synthesis": {
+          "status": "core",
+          "headline": "六步把 GitHub PR 做成可运行环境，再按任务改奖励",
+          "summary": "只保留已合并、带测试、通过规则过滤的 PR。非 Python 用 agent 根据构建报错改 Dockerfile。Bug、feature、performance 用不同的测试奖励。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "20 万容器和 10 余种语言没有出现在已读的 4.1 节。性能奖励没有写成连续耗时公式。"
+          ],
+          "detail": ""
+        },
+        "pretraining": {
+          "status": "standard",
+          "headline": "已核对的是架构，不是预训练数据配方",
+          "summary": "旗舰 M2 为 229.9B 总参数、每 token 激活 9.8B，62 层，256 个专家，原生上下文 192K，并带 MTP。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "论文有预训练数据一节，本看板尚未逐项核对，不能把架构数字写成数据配比。"
+          ],
+          "detail": ""
+        }
+      },
+      "variants": [
+        {
+          "id": "m2",
+          "label": "M2",
+          "params_total": "229.9B",
+          "params_active": "9.8B"
+        },
+        {
+          "id": "m2.5",
+          "label": "M2.5",
+          "params_total": "—",
+          "params_active": "—",
+          "overrides": {
+            "pretraining": {
+              "status": "standard",
+              "headline": "作为系列里的前一版公开检查点",
+              "summary": "评测表把 M2.5 当作 M2.7 的 within-series 对照。架构数字写在旗舰 M2 上。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [
+                "已核对章节没有给出这一检查点单独的参数量。训练配方按 M2 系列来写，不把 M3 的 428B 记进来。"
+              ],
+              "detail": ""
+            }
+          }
+        },
+        {
+          "id": "m2.7",
+          "label": "M2.7",
+          "params_total": "—",
+          "params_active": "—",
+          "overrides": {
+            "stage_4": {
+              "status": "standard",
+              "headline": "会修改自己的 scaffold",
+              "summary": "M2.7 会排查失败的训练并按任务改 agent scaffold，再在 ML 工程任务上做多轮自改进。这不是 OPD。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [
+                "已核对章节没有给出这一检查点单独的参数量。训练配方按 M2 系列来写，不把 M3 的 428B 记进来。"
+              ],
+              "detail": ""
+            }
+          }
+        }
+      ],
+      "architecture": "moe"
+    },
+    {
+      "id": "deepseek-v4",
+      "name": "DeepSeek-V4",
+      "org": "DeepSeek",
+      "date": "2026.04 - 08",
+      "params_total": "284B / 1.6T",
+      "params_active": "13B / 49B",
+      "base_model": "DeepSeek-V4-Base (1M Context)",
+      "paradigm_type": "opd",
+      "paradigm_label": "Divide-and-Conquer Specialists + Unified OPD",
+      "openness": "Open Weights + Deep Infra & Algorithm Technical Report",
+      "source_link": "https://arxiv.org/abs/2606.19348",
+      "source_label": "arXiv:2606.19348",
+      "infra_stack": "MXFP4 Post-Training QAT + Token-level WAL Resumable Rollout",
+      "topology_summary": "典型的“扇出分治 + 扇入统一蒸馏”有向无环图（Fan-out / Fan-in DAG）：先从 Base 分裂出 Math、Coding/SWE、Agent、General (Rubric-GRM) 四个独立专家各自运行高强度 SFT+GRPO，再通过 Unified On-Policy Distillation 一次性汇聚至单一学生模型。",
+      "stages": {
+        "stage_0": {
+          "status": "standard",
+          "headline": "Pro 1.6T / Flash 284B，上下文 100 万；后训练未单列退火",
+          "summary": "V4-Pro（1.6T/49B 激活）和 V4-Flash（284B/13B 激活）都支持 100 万 token 上下文。后训练章节没有把长上下文退火拆成可复现配方。",
+          "methods": [
+            "高效稀疏注意力与长序列退火"
+          ],
+          "data_And_filtering": "长文档、代码仓库与合成长思维链语料",
+          "infra_notes": "1M Context 极低显存开销架构",
+          "problems_solved": [],
+          "gaps": [
+            "旧稿里的“高效稀疏注意力与长序列退火数据配方”没有在第 5 节写成一个可核对的 Stage 0。预训练架构（CSA/HCA）不等于后训练退火。"
+          ],
+          "detail": "论文摘要给出的预览版规模是 DeepSeek-V4-Pro 1.6T 参数、49B 激活，DeepSeek-V4-Flash 284B 参数、13B 激活，上下文长度都是一百万 token。第 5 节从预训练之后的后训练写起，没有单独给出“1M 退火语料配比”或位置编码扩展步骤。长上下文主要出现在后训练基础设施里：FP4 QAT 覆盖 CSA indexer 的 QK 通路，以及百万 token 上下文的 RL/OPD。"
+        },
+        "stage_1": {
+          "status": "core",
+          "headline": "按领域先做专家的微调，再进入该领域 RL",
+          "summary": "领域专家沿用 V3.2 的流程：先微调，再用领域 prompt 和奖励做 GRPO。同一专家还按推理力度分成不同配置。",
+          "methods": [
+            "每个专家先微调，再做领域奖励的 GRPO，超参与先前 DeepSeek 报告保持接近，论文没有在这一节重列新的学习率表",
+            "Pro 和 Flash 都有 Non-think、Think High、Think Max 三种推理力度。RL 里用不同的长度惩罚和上下文窗口，Think Max 还会在系统提示开头注入一段不许走捷径的指令",
+            "工具调用改成带 <|DSML|> 的 XML schema，用来减少转义失败"
+          ],
+          "data_And_filtering": "领域 prompt 和奖励按专家分开。论文没有在 5.1.1 列出数学/代码/Agent/通用四专家的样本量表。",
+          "infra_notes": "思考内容在工具调用场景里整段对话保留，不再像 V3.2 那样在新用户消息到来时丢掉全部推理痕迹。这依赖 1M 上下文。",
+          "problems_solved": [
+            "forgetting_conflict"
+          ],
+          "gaps": [
+            "“Math、Coding/SWE、Agent、General 恰好四个专家”不能从第 5.1 节证实。OPD 使用的是十个以上、覆盖不同领域的教师。",
+            "各专家冷启动轨迹的条数和筛选阈值未给出。"
+          ],
+          "detail": "后训练大框架沿用 V3.2，但把混合 RL 换成了 On-Policy Distillation。专家阶段仍然是“微调 + 领域 RL”。难验证任务不再训练标量 RM，而是做 rubric 引导的 RL，并用生成式奖励模型（GRM）打分；GRM 本身也做 RL，角色和策略模型统一。论文写的是“多于十个教师”，不是旧稿里的恰好四个专家。"
+        },
+        "stage_2": {
+          "status": "core",
+          "headline": "专家侧 GRPO，后训练引入 MXFP4 QAT 和 token 级 WAL",
+          "summary": "专家 RL 用 GRPO。后训练用 MXFP4 QAT 适应部署精度；rollout 用 token 粒度预写日志，避免中断后续写造成短回复偏差。",
+          "methods": [
+            "GRPO 用于领域专家的 RL。混合 RL 阶段被 OPD 替换，不要把最终汇合也写成混合 GRPO",
+            "MXFP4 QAT 打在 MoE 专家权重和 CSA indexer 的 QK 通路上。优化器仍持有 FP32 master weight，前向量化到 FP4 再反量化到 FP8 计算；论文称该反量化在当前权重的 scale 条件下无损。推理和 rollout 直接用原生 FP4 权重",
+            "indexer 的分数在 QAT 中从 FP32 量化到 BF16，top-k 选择加速 2 倍，KV 条目召回率 99.7%",
+            "集群任务可被抢占。每个生成请求维护 token 粒度 WAL：每生成一个 token 就追加。抢占时暂停引擎并保存未完成请求的 KV cache，恢复时从 WAL 和 KV cache 续写。论文明确说从头重生成在数学上不正确，因为短回复更可能在中断前写完，会引入长度偏差"
+          ],
+          "data_And_filtering": "易验证任务用规则或测试用例。难验证任务用 rubric 引导的数据加 GRM，而不是标量奖励模型。",
+          "infra_notes": "后训练基础设施沿用 V3.2 的分布式训练栈和 rollout 引擎，并加上 FP4 QAT、全词表 OPD 的教师调度，以及可抢占的生成服务。",
+          "problems_solved": [
+            "moe_off_policy",
+            "reward_hacking"
+          ],
+          "gaps": [
+            "各垂直领域题库规模、GRPO 的 group size 和学习率，5.1 节只说与先前报告接近，没有新表。"
+          ],
+          "detail": "WAL 解决的是抢占和硬件故障下的续写，不是一条单独的“短回复奖励惩罚”。作者给出的机制是：如果未完成请求从头重采样，较短序列更不容易被中断，训练分布会被推向短输出。batch-invariant 且确定性的推理栈也可以用固定种子重生成来避免这个偏差，但要重跑解码，比 WAL 贵。"
+        },
+        "stage_3": {
+          "status": "core",
+          "headline": "难验证任务用 rubric 训练的生成式奖励模型",
+          "summary": "V4 不用常规标量 RM。难验证任务做成 rubric 引导的 RL，并由同时被 RL 优化的 GRM 评分。",
+          "methods": [
+            "GRM 与策略统一：actor 自己承担评判，评判能力和生成能力一起优化",
+            "论文强调这样做只用一小套多样的人工标注，靠模型自己的推理泛化到复杂任务"
+          ],
+          "data_And_filtering": "rubric 引导的 RL 数据用于难验证任务。标注规模只被描述为“minimal set”，没有给出条数。",
+          "infra_notes": "工具场景要求在 thinking mode 下先写完 <think> 再发工具调用。",
+          "problems_solved": [
+            "reward_hacking"
+          ],
+          "gaps": [
+            "自博弈对局数、rubric 维度和 GRM 与策略是否共享全部权重，论文没有展开到可复现配置。"
+          ],
+          "detail": "这一段是专家训练里的奖励设计，不是一个排在所有专家之后的独立“第三阶段”。标量 RM / RLHF 被明确拿掉。GRM 的鲁棒性来自把模型自己的推理写进评分过程。"
+        },
+        "stage_4": {
+          "status": "core",
+          "headline": "十个以上教师的全词表 On-Policy Distillation",
+          "summary": "专家各自做完微调和 RL 之后，用多教师 OPD 把能力收进一个学生。学生在自己采样的轨迹上对齐教师分布，损失是加权的全词表 KL。",
+          "methods": [
+            "学生从自己的轨迹上学习，保持 on-policy。目标是各专家 reverse KL 的加权和，权重大致反映该专家的相对重要性",
+            "当前任务只对齐相关专家，例如数学题对齐数学专家、编程对齐代码专家",
+            "不用只在已采样 token 上估计 KL 的简化，而做全词表 logit 蒸馏。论文把这写成相对“把 KL 塞回 RL 优势项”的先前做法的差别",
+            "教师数量多于十个。基础设施一节写明要支撑十余个教师的超长上下文 OPD 合并"
+          ],
+          "data_And_filtering": "轨迹由学生自己采样。教师按领域选用。混合比例的具体权重表未在摘录中给出。",
+          "infra_notes": "5.2.2 专门写了全词表 OPD 的教师调度。本轮没有把调度算法的伪代码抄进卡片。",
+          "problems_solved": [
+            "forgetting_conflict"
+          ],
+          "gaps": [
+            "学生是否从同一个 base 初始化、教师各自的领域名单、以及 w_i 的数值，正文公式层有定义，但没有领域对照表。"
+          ],
+          "detail": "OPD 是这条流水线相对 V3.2 的关键替换：最终模型不是再跑一轮混合 RL，而是把多个物理上分开的专家分布收进同一套参数。作者认为这避开了权重合并和混合 RL 常见的退步。"
+        },
+        "stage_5": {
+          "status": "standard",
+          "headline": "难验证任务不再单列标量 RLHF",
+          "summary": "通用偏好不再训练标量 RM。开放质量主要靠 GRM 和最后的多教师 OPD，而不是单独的末置 RLHF。",
+          "methods": [
+            "轻量级全局对齐与 Token 预算控制"
+          ],
+          "data_And_filtering": "高优人类偏好与简洁推理样本",
+          "infra_notes": "端到端 MXFP4 一致性校验",
+          "problems_solved": [
+            "overthinking_latency"
+          ],
+          "gaps": [
+            "未找到单独的通用 RLHF 阶段，也没有把 overthinking 压缩写成 Stage 5 的配方。相关机制在专家 RL 的长度惩罚和 Think Max 提示里。"
+          ],
+          "detail": "论文写明难验证任务不再走“大量人工标注训练标量奖励模型”的 RLHF。因此旧稿里“Stage 5 = 通用 RLHF + 思维链压缩”不能映射到 V4 的一个独立收尾阶段。推理长度是在专家 RL 里用长度惩罚和三种 reasoning effort 控制的。"
+        }
+      },
+      "tracks": {
+        "data_synthesis": {
+          "status": "standard",
+          "headline": "难验证任务用 rubric 数据，没有单独的合成章",
+          "summary": "易验证任务用规则或测试。难验证任务做成 rubric 引导的 RL，并由 GRM 评分。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "专家各自的冷启动条数、以及有没有独立的环境合成管线，第 5 节没有给出。"
+          ],
+          "detail": ""
+        },
+        "pretraining": {
+          "status": "skipped",
+          "headline": "论文有预训练章，本看板还没核对进这一格",
+          "summary": "已核对的是后训练第 5 节。摘要里的规模是 Pro 1.6T/49B 激活、Flash 284B/13B 激活，上下文 100 万。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "第 4 节预训练的数据配比和超参尚未摘入，不能在这里复述。"
+          ],
+          "detail": ""
+        }
+      },
+      "variants": [
+        {
+          "id": "flash",
+          "label": "Flash",
+          "params_total": "284B",
+          "params_active": "13B",
+          "overrides": {
+            "stage_0": {
+              "status": "standard",
+              "headline": "284B / 13B 激活，上下文 100 万",
+              "summary": "Flash 与 Pro 共用后训练流程。后训练章节没有把长上下文退火写成可复现配方。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [
+                "Flash 与 Pro 的阶段差异没有在第 5 节分开写，除规模外不要分成两套算法。"
+              ],
+              "detail": ""
+            }
+          }
+        },
+        {
+          "id": "pro",
+          "label": "Pro",
+          "params_total": "1.6T",
+          "params_active": "49B",
+          "overrides": {
+            "stage_0": {
+              "status": "standard",
+              "headline": "1.6T / 49B 激活，上下文 100 万",
+              "summary": "Pro 与 Flash 都支持三种推理力度。后训练章节没有把长上下文退火写成可复现配方。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [
+                "Pro 与 Flash 的阶段差异没有在第 5 节分开写，除规模外不要分成两套算法。"
+              ],
+              "detail": ""
+            }
+          }
+        }
+      ],
+      "architecture": "moe"
+    },
+    {
+      "id": "nemotron-3.5-super",
+      "name": "Nemotron 3.5",
+      "org": "NVIDIA",
+      "date": "2026.04 - 10",
+      "params_total": "120B / 30B",
+      "params_active": "12B / 3B",
+      "base_model": "Nemotron-3/3.5 Hybrid Mamba2-MoE",
+      "paradigm_type": "opd",
+      "paradigm_label": "Agentic Mid-Training + Async GRPO + Multi-Teacher OPD",
+      "openness": "Full Weights + 153 Open Datasets + NeMo RL & NeMo Gym",
+      "source_link": "https://arxiv.org/abs/2610.38095",
+      "source_label": "arXiv:2610.38095；mid-training 配方另见 arXiv:2610.22019",
+      "infra_stack": "NeMo RL + NeMo Gym (NVFP4 Support + Native MTP)",
+      "topology_summary": "核心特征是“重度前置 Agentic SWE Mid-Training + 极轻量 SFT + NeMo Gym 五大环境并行异步 GRPO + 跨领域多教师蒸馏与原生 MTP 投机解码头联合训练”。",
+      "stages": {
+        "stage_0": {
+          "status": "core",
+          "headline": "Super 在长上下文检查点上再做 65.4B token 的 agentic mid-training",
+          "summary": "模型报告里，Super 的 mid-training 是 256K、65.4B token，之后还有约 9B token 的长上下文恢复。Lightning 没有这一阶段。",
+          "methods": [
+            "数据以自然软件工程文本为主：仓库、带 issue 的 PR、commit 历史和构建日志，保持原格式，不加 chat template。Agent trace 只占一小份，并且 mask 掉工具返回，只在模型自己的轮次上计算损失",
+            "所有来源相对 SWE-bench 和 Terminal-Bench 去污染，并去掉密钥",
+            "学习率重置后线性升到预训练末期的大约两倍，然后保持常数",
+            "256K 训练拉低了 RULER-1M，所以后面接了约 9B token 的长上下文恢复"
+          ],
+          "data_And_filtering": "模型报告 Table 4 给出 Super-3.5 的混合。配套的 mid-training 配方论文（arXiv:2610.22019）另报告 Super 上 280B token 的实验：同样的完整 SFT 之后，DeepSWE 从 11.7 到 15.7，SWE-bench Verified 从 72.9 到 74.3。两篇的 token 数不要当成同一次运行。",
+          "infra_notes": "序列长度 256K。配方论文还写明预训练几乎看不到 agent 交互，而过长的 SFT 会伤害后面的 RL，所以把自然软件数据放在中间。",
+          "problems_solved": [
+            "forgetting_conflict"
+          ],
+          "gaps": [
+            "65.4B（模型报告）和 280B（配方论文）不是同一个已核对数字，不能合并成一条配方。",
+            "旧稿若把 mid-training 写成 Lightning 也有，与模型报告相反：Lightning 3.5 没有 mid-training。"
+          ],
+          "detail": "模型报告用同一套实验性的约 33B token（2K step）SFT 比较 mid-training 前后。标准基准上最清楚的提升在 DeepSWE（pass@1 从 6.4 到 10.4）。SWE-bench Verified / Multilingual / Pro 在 OpenHands 下的变化落在大约 1 分的运行波动里。更大的差别是换 harness：另外五个 harness 上，mid-trained 模型在 SWE-bench Verified 平均高 8.6 分，Terminal-Bench 平均高 6.8 分。"
+        },
+        "stage_1": {
+          "status": "standard",
+          "headline": "Super 用两阶段 SFT 把文本基座训成多模态，Lightning 只有一轮文本 SFT",
+          "summary": "基座是纯文本。Super 先暖 vision projector，再做一轮通用混合，然后用一小段第二阶段补第一阶段没学够的能力。",
+          "methods": [
+            "第一阶段混合 vision、推理、聊天、长上下文、安全和 agent 数据",
+            "第二阶段只改混合比例，补第一阶段不足的能力",
+            "Lightning 用同一套文本数据做单阶段 SFT，不做 MOPD"
+          ],
+          "data_And_filtering": "视觉数据在 SFT 引入。模型报告提到对图像做 same-teacher 文本等价判断并去掉冗余格式，细节在视觉数据小节。",
+          "infra_notes": "先暖 vision projector，再进入两阶段 SFT。原因是视觉和文本放在同一步里难学。",
+          "problems_solved": [
+            "forgetting_conflict"
+          ],
+          "gaps": [
+            "两阶段各自的 token 数和采样权重没有在摘录里形成完整表。旧稿“极轻量 SFT”与“引入大量视觉数据的两阶段 SFT”不一致，以模型报告为准。"
+          ],
+          "detail": "Super 的后训练顺序与 Nemotron 3 Ultra 类似：SFT、RLVR、专家教师，最后 MOPD。SFT 的角色之一是把文本基座变成能处理图像、视频和工具环境的模型，而不是只做一份很轻的文本冷启动。"
+        },
+        "stage_2": {
+          "status": "core",
+          "headline": "RLVR 与 RLHF 一起做，并用 router replay 压训推 KL",
+          "summary": "这一阶段同时走可验证奖励和 RLHF。相对 Nemotron 3 Ultra，数据更新过，训练前先做 reward profiling。算法不变，另加 router replay 和 LM head 的 FP32。",
+          "methods": [
+            "样本按环境送到对应验证器或奖励模型",
+            "router replay（Ma et al., 2025）加上 LM head 使用 FP32，把训练引擎和推理引擎之间的 KL 误差降低一个数量级以上",
+            "金融工具环境建在 NeMo Gym 上，轨迹生成、SFT、RL 和评测使用同一套工具：SEC 文件搜索、文档解析、证据检索和带来源的提交"
+          ],
+          "data_And_filtering": "RL 数据换成更新的集合。金融数据有两条合成轨道：从标普 500 的 10-K/10-Q/8-K 抽窗口出题，以及按覆盖审计补 Vals.ai 分类里的缺口。题目用多种子投票和 GenSelect 检查可答性。",
+          "infra_notes": "NeMo Gym 在文中是这个金融 agent 环境的底座。报告没有在同一段把后训练 RL 写成“五个并行环境”的清单。",
+          "problems_solved": [
+            "moe_off_policy",
+            "curriculum_efficiency"
+          ],
+          "gaps": [
+            "“NeMo Gym 五大环境并行”没有在 3.2 节被逐一点名。已核对的是金融 agent 这一套，以及 agentic teacher 的 Terminal / SWE / Search。",
+            "RL 的学习率和 batch 只在 agentic teacher 小节给出 64 prompt × 16 generation。"
+          ],
+          "detail": "RL 的作用被写成：提高 SFT 模型的通用能力，并为后面的专用教师提供起点。Agentic teacher 从 text-RLVR 的 step-120 初始化，只用可执行的 Terminal、SWE 和 Search，不用单步环境。推理教师同样从 step-120 初始化。"
+        },
+        "stage_3": {
+          "status": "core",
+          "headline": "长程工具在 agentic teacher 和 NeMo Gym",
+          "summary": "长程工具能力主要落在 agentic teacher 和 NeMo Gym 环境里，而不是一个名叫 Rubric RL 的独立阶段。",
+          "methods": [
+            "Agentic teacher 不使用单步环境，只在沙盒里训练可执行的 Terminal、SWE 和 Search",
+            "最大轨迹年龄设为 1，避免过旧样本"
+          ],
+          "data_And_filtering": "难度相对 step-120 检查点做过筛选。具体通过率阈值未摘出。",
+          "infra_notes": "单条任务最长 2 小时。环境工具在 SFT、RL 和评测之间保持一致，避免格式错位。",
+          "problems_solved": [
+            "env_synthesis"
+          ],
+          "gaps": [
+            "旧稿中的“细粒度 Rubric / 自博弈 GRM”不是这篇报告用来组织 Super 后训练的阶段名。"
+          ],
+          "detail": "Agentic teacher 做端到端 GRPO：64 条 prompt、每条 16 个生成，batch 1024，轨迹最大年龄为 1，单条 rollout 超时 2 小时。任务难度按 step-120 text-RLVR 检查点做过 profiling。金融环境的奖励来自可执行工具和带来源的提交，不是一组可选 rubric。"
+        },
+        "stage_4": {
+          "status": "core",
+          "headline": "多教师 on-policy distillation，然后做 MTP boosting",
+          "summary": "Super 在 RL 之后做 MOPD，把专用教师蒸馏回学生。Lightning 没有 MOPD。MTP boosting 跑在 MOPD 的输出上。",
+          "methods": [
+            "给定某领域的 prompt，由该领域的教师按学生当前上下文提供 token 级监督：提高教师认为更可能的 token，压低教师认为更不可能的 token",
+            "教师从它们分支出去的那个检查点所在的流水线而来。Agentic teacher 和 reasoning teacher 都从 step-120 text-RLVR 初始化后再专项训练",
+            "MTP boosting 在 MOPD 之后，报告中的部署侧结果是：概率草案采样下，投机解码的接受长度最多提高 21.8%"
+          ],
+          "data_And_filtering": "教师按领域领取 prompt。各领域混合比例未在摘录中列成表。",
+          "infra_notes": "MOPD 用学生自己的 rollout，教师只在对应领域被咨询。",
+          "problems_solved": [
+            "forgetting_conflict",
+            "overthinking_latency"
+          ],
+          "gaps": [
+            "教师完整名单（除 agentic、reasoning、vision、alignment 这些小节标题）和每域采样权重没有在本轮收成一张表。"
+          ],
+          "detail": "这是报告里真正的“多专家再合一”。它发生在 RL 和专用教师之后，不是用权重平均替代蒸馏。Lightning 停在更轻的文本 SFT + RLVR，不能把 MOPD 写成两个模型共有的阶段。"
+        },
+        "stage_5": {
+          "status": "standard",
+          "headline": "对齐进入 MOPD，量化在单独章节",
+          "summary": "安全和对齐由 alignment teacher 进入 MOPD，而不是一条写在最后的通用 RLHF。推理长度控制在报告 3.9 节，量化在第 4 节。",
+          "methods": [
+            "用 Generative RM 替代传统标量 RM，输出推理判据后再给出奖励分"
+          ],
+          "data_And_filtering": "开源偏好对比与红队安全数据集",
+          "infra_notes": "NeMo RL GenRM 闭环评估",
+          "problems_solved": [
+            "reward_hacking"
+          ],
+          "gaps": [
+            "alignment teacher 的数据构成和奖励模型形式未在本轮展开。",
+            "不应把 NVFP4 的 99.62% 恢复写成 RL 奖励或 QAT 配方；报告把它放在量化章节。"
+          ],
+          "detail": "RL 阶段已经同时包含 RLHF 路由。后训练量化里，NVFP4 相对 BF16 的中位精度恢复是 99.62%。这是部署量化结果，不是后训练阶段的奖励设计。3.9 节讨论推理效率和控制，但本轮没有把它改写成一套独立的 CoT 压缩 RL 配方。"
+        }
+      },
+      "tracks": {
+        "data_synthesis": {
+          "status": "standard",
+          "headline": "Mid-training 以自然软件数据为主，agent 轨迹只占一小份",
+          "summary": "仓库、PR、commit 和构建日志保持原格式。Agent trace 做损失掩码，只训练模型自己的轮次。来源相对 SWE-bench 和 Terminal-Bench 去污染。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "配套配方论文写了各类数据怎么建，模型报告这一格没有把过滤阈值逐条抄全。"
+          ],
+          "detail": ""
+        },
+        "pretraining": {
+          "status": "standard",
+          "headline": "预训练是短上下文，几乎没有 agent 交互",
+          "summary": "Super 的基座是纯文本。视觉是到 SFT 才大量加进去的。过长的 SFT 会伤害后面的 RL，所以仓库级数据放在 mid-training。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "预训练 token 量和数据配比不在已核对的 mid-training 段落里。"
+          ],
+          "detail": ""
+        }
+      },
+      "variants": [
+        {
+          "id": "super",
+          "label": "Super",
+          "params_total": "120B",
+          "params_active": "12B"
+        },
+        {
+          "id": "lightning",
+          "label": "Lightning",
+          "params_total": "30B",
+          "params_active": "3B",
+          "overrides": {
+            "stage_0": {
+              "status": "skipped",
+              "headline": "没有 mid-training",
+              "summary": "模型报告写明 Lightning 3.5 没有 mid-training。65.4B token 的 256K 阶段只属于 Super。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [
+                "不能把 Super 的 65.4B 或配方论文里的 280B 记到 Lightning 上。"
+              ],
+              "detail": ""
+            },
+            "stage_1": {
+              "status": "standard",
+              "headline": "一轮文本 SFT",
+              "summary": "Lightning 用文本数据做单阶段 SFT，不做 Super 的视觉预热和两阶段混合，也不进入 MOPD。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [],
+              "detail": ""
+            },
+            "stage_2": {
+              "status": "core",
+              "headline": "文本 RLVR",
+              "summary": "Lightning 的后训练比 Super 短：文本 SFT 之后做 RLVR。报告没有把 Super 的 agentic teacher 写到 Lightning 上。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [
+                "moe_off_policy"
+              ],
+              "gaps": [
+                "Lightning 的 RL batch、学习率和环境名单没有单独列表。"
+              ],
+              "detail": ""
+            },
+            "stage_3": {
+              "status": "skipped",
+              "headline": "未单列长程工具教师",
+              "summary": "Agentic teacher、NeMo Gym 金融环境和 2 小时 rollout 是 Super 的训练描述。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [],
+              "detail": ""
+            },
+            "stage_4": {
+              "status": "skipped",
+              "headline": "没有 MOPD",
+              "summary": "多教师 on-policy distillation 和之后的 MTP boosting 只写在 Super 上。Lightning 没有这一阶段。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [],
+              "detail": ""
+            },
+            "stage_5": {
+              "status": "skipped",
+              "headline": "没有单独的对齐教师阶段",
+              "summary": "alignment teacher 进入 MOPD 是 Super 的收尾。Lightning 停在 RLVR。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [],
+              "detail": ""
+            },
+            "pretraining": {
+              "status": "standard",
+              "headline": "30B / 3B 激活的文本模型",
+              "summary": "Lightning 比 Super 小，报告把它写成文本模型。预训练同样是短上下文、几乎没有 agent 交互。",
+              "methods": [],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [],
+              "gaps": [
+                "Lightning 的预训练 token 量没有在已核对段落里单列。"
+              ],
+              "detail": ""
+            }
+          }
+        }
+      ],
+      "architecture": "moe"
+    },
+    {
+      "id": "rufus-air-106b",
+      "name": "Rufus-Air",
+      "org": "Amazon",
+      "date": "2026.09",
+      "params_total": "106B",
+      "params_active": "12B",
+      "base_model": "GLM-4.5-Air-Base",
+      "paradigm_type": "serial",
+      "paradigm_label": "8-Stage Anti-Hacking Serial Pipeline",
+      "openness": "Full Recipe + Open Data + Slime/SGLang Infra",
+      "source_link": "https://arxiv.org/abs/2609.29421",
+      "source_label": "arXiv:2609.29421",
+      "infra_stack": "Slime + SGLang (Token-in/Token-out + R3 Routing Replay)",
+      "topology_summary": "严格按“验证器抗 Hack 能力从强到弱”排列的 8 阶段单链条串行推进架构（SFT → Math RL → Code RL → Essential-Rubric IF RL → 3 阶段递进式 Agent RL → 末置开放域 RLHF），底部由 Slime + SGLang 路由重放总线全程托底。",
+      "stages": {
+        "stage_0": {
+          "status": "skipped",
+          "headline": "直接从 GLM-4.5-Air-Base 启动",
+          "summary": "论文从公开的 GLM-4.5-Air-Base 直接进入 SFT，没有单独的 Late Mid-Training 章节。",
+          "methods": [
+            "直接复用预训练基座分布，将算力集中在后续 8 个串行后训练阶段"
+          ],
+          "data_And_filtering": "无独立退火数据",
+          "infra_notes": "基座检查点转换至 Slime 训练格式",
+          "problems_solved": [],
+          "gaps": [
+            "论文未描述独立的 Late Mid-Training / 退火阶段，因此不能把“跳过”解释成他们比较过并否决了这一步。"
+          ],
+          "detail": "Rufus-Air 的起点是 GLM-4.5-Air-Base（106B 总参数、12B 激活）。作者选择它，是因为权重公开、Slime 来自 GLM-4.5 同一团队、SGLang 原生支持 GLM 系列，而且 12B 激活让后续 RL 能放在 8–32 个节点上。架构、分词器和原生 <think> 对话格式都保持不变，基座本身不改。论文没有把长上下文退火或仓库级 mid-training 写成独立阶段。"
+        },
+        "stage_1": {
+          "status": "core",
+          "headline": "9.01M 样本的多能力 SFT，先把能力地板打稳",
+          "summary": "SFT 覆盖通用对话、STEM、数学、代码和 Agent，损失只算助手轮次；数据来自 17 个公开数据集，不再生成新回答。",
+          "methods": [
+            "最终混合为 9.01M 条样本、44.5B 原始 token、6670 万对话轮（其中 2350 万轮被监督）；遮掉 system、user 和工具观察后，27.0B token（60.8%）进入损失",
+            "六类能力：General Agent 占样本 39.6% 但训练 token 只占 14.2%；Math 与 Coding Agent 合计只占样本 18.8%，却占训练 token 的 49.1%",
+            "17 个公开数据集按发布版本使用，不做 Rufus-Air 自己的回答重生成，也不新标人工数据"
+          ],
+          "data_And_filtering": "组成、统一监督格式、以及针对所报告基准的去污染，是数据管线的三步。样本占比和进入损失的 token 占比要分开看。",
+          "infra_notes": "SFT 与之后所有 RL 都跑在 Rufus-Slime（Slime 的改版）上，训练后端是 Megatron-LM。",
+          "problems_solved": [
+            "forgetting_conflict"
+          ],
+          "gaps": [
+            "看板旧稿写的“Thinking / Non-thinking 双模式混合冷启动”不是论文 3.1 节的组织方式。论文只说明沿用基座原生 <think> 格式，没有把双模式配比写成这一阶段的方法。"
+          ],
+          "detail": "论文把 SFT 写成能力地板，而不是热身。后面的 RL 需要三件事已经具备：验证器能解析的稳定推理和回答格式；聊天、数学、STEM、代码和工具使用的覆盖面；以及足够的多轮和长上下文，使奖励是在修正行为而不是从零教格式。目标是先做出一个已经能和公开 GLM-4.5-Air 后训练版比较的检查点。"
+        },
+        "stage_2": {
+          "status": "core",
+          "headline": "先做可验证的 Reasoning RL，再做 Coding RL",
+          "summary": "推理 RL 用 GSPO，并把难度限制在可学习区间；代码 RL 接在后面。两者都用 Rollout Routing Replay 稳住 MoE。",
+          "methods": [
+            "Reasoning RL 的策略梯度骨干是 GSPO（序列级重要性比率和截断），选择原因是长 MoE rollout 更稳，并和 Rollout Routing Replay 一起吸收 FP8 rollout 与 BF16 训练的偏差。论文没有把这一阶段写成 CISPO",
+            "正确性过滤：强教师 GPT-OSS-120B 拿不到正奖励的题丢掉。可学习性过滤：当前策略成功率高于 0.8 的题太易，成功率为 0 的题当前学不会，两者都去掉",
+            "83.5% 的推理题用 \\boxed{} 对短金标（中位数 5 token）打分。推理 RL 在 8 节点（64×H200）上同步训练，FP8 SGLang 与 BF16 训练同卡交替",
+            "Coding RL 在 32 个八卡节点（256 GPU）上，同样是同卡 FP8 SGLang rollout 与 BF16 训练交替"
+          ],
+          "data_And_filtering": "推理题来自公开题、Enigmata / ReasoningGym 合成题，以及带参考答案的第三方数学集。先做污染和安全筛查，再做正确性过滤和可学习性过滤。",
+          "infra_notes": "Rollout Routing Replay（R3）缓存 rollout 时的专家路由，并在训练前向里重放，去掉 MoE 训推路由不一致带来的 log-prob 缺口。该功能在上游 Slime 里。",
+          "problems_solved": [
+            "moe_off_policy",
+            "curriculum_efficiency"
+          ],
+          "gaps": [
+            "Coding RL 的题库构成、单元测试规模和学习率，本轮没有从 3.3 节逐项抄全，卡片不补充未核对的超参。"
+          ],
+          "detail": "八阶段的顺序由两根轴决定：能力从基础到进阶；奖励从难被钻的硬验证走向更软的打分、裁判或环境信号。Reasoning RL 和 Coding RL 因为奖励最不容易被 hack，放在 RL 的最前。作者明确说这个顺序并不能保护前面已经获得的能力，因为后面每个阶段都更新同一套参数，所以每阶段都相对它的起点检查点来记变化。"
+        },
+        "stage_3": {
+          "status": "core",
+          "headline": "全满足才给分的指令遵循，再接三类 Agent",
+          "summary": "IF RL 只用“必须满足”的 rubric，全部通过才有正奖励。其后是 General Agent、Coding Agent、Search Agent，而不是一条笼统的三阶段 Agent 课。",
+          "methods": [
+            "IF RL：每条样本的 rubric 只描述回答必须满足的条件，全部满足才给正奖励。能用程序判断的用 Python 真假函数，其余交给教师 LLM。刻意不写 optional rubric，因为它们给奖励加噪声，并推向长度偏见",
+            "General Agent 用 GRPO 和 DAPO 式动态采样（整组全对或全错的 prompt 丢掉），并使用 Rollout Routing Replay。针对有状态 MCP 的 rollout 每步 3072 条",
+            "Coding Agent 同样是 GRPO + 动态采样；沙盒启动失败、验证器超时、连接丢弃标成 aborted，在算优势前移出采样组，避免把基础设施故障当成奖励 0",
+            "Search Agent 用 GRPO 的 mean-only 组优势，G=16"
+          ],
+          "data_And_filtering": "IF 的 rubric 分成代码可验证和 LLM 裁判两类。Agent 阶段的环境细节在论文第 4.2 节的 Rufus-Gym，本卡片不另造任务配比。",
+          "infra_notes": "多轮 RL 使用 token-in/token-out，避免每轮把文本解码后再分词。Agent 环境层是 Rufus-Gym，rollout 引擎是 SGLang。",
+          "problems_solved": [
+            "reward_hacking",
+            "env_synthesis"
+          ],
+          "gaps": [
+            "Search Agent 是否等于旧稿里的 Deep Research 多跳检索，论文小节标题只写 Search Agent，不能把两者当成同一课程设计。",
+            "三类 Agent 的提示数量、最大轮数和学习率未在本轮摘全。"
+          ],
+          "detail": "论文把指令遵循放在推理和代码 RL 之后、开放奖励之前：IF 虽然用 rubric 裁判，但离模型已经会做的事近，裁判空间小，所以可以相对靠前。Agent 段是三个独立阶段：General Agent、Coding Agent、Search Agent。旧看板把它们写成“单轮工具 → 多轮工具 → Deep Research”的课程，和论文小节标题不一致。"
+        },
+        "stage_4": {
+          "status": "skipped",
+          "headline": "不采用跨阶段蒸馏，依靠抗 Hack 串行顺序保能力",
+          "summary": "配方是单模型八阶段串行更新，没有跨阶段或多教师在线蒸馏。",
+          "methods": [
+            "通过“强确定性验证器在前、易被 Hack 的软奖励在后”的严格串行顺序替代蒸馏"
+          ],
+          "data_And_filtering": "N/A",
+          "infra_notes": "单模型权重一路演进到底，降低存储多专家教师模型的显存开销",
+          "problems_solved": [],
+          "gaps": [
+            "“不蒸馏是为了省多教师显存”是看板推断，论文没有这样论证。"
+          ],
+          "detail": "论文的合并方式不是 OPD。后一阶段直接更新同一套参数，作者也写明阶段顺序不能自动保住前一阶段的分数，所以用阶段对照表记录每一步相对起点的变化。不存在“用蒸馏把专家汇回一个学生”的收口阶段。"
+        },
+        "stage_5": {
+          "status": "standard",
+          "headline": "最后才用学出来的奖励模型做 RLHF",
+          "summary": "这里的 RLHF 是对着学得的奖励模型做 RL，不是新的人工标注。因为这种奖励最好钻，所以放在整条流水线最后。",
+          "methods": [
+            "奖励来自已有的奖励模型，不为本配方新标人工偏好",
+            "放在最后，是为了缩短可被 hack 的奖励处于优化压力下的时间"
+          ],
+          "data_And_filtering": "论文说明该阶段服务没有确定性验证器的开放质量，并提到 IF RL 已经把回答缩短之后，RLHF 仍有单独要补的开放质量问题。具体偏好集规模未在本轮摘出。",
+          "infra_notes": "与前面的 RL 一样走 Rufus-Slime。论文没有在摘要层给出这一阶段的 KL 系数或步数上限。",
+          "problems_solved": [
+            "reward_hacking"
+          ],
+          "gaps": [
+            "旧稿中的“短周期、小学习率、严格限制 KL”没有出现在本轮核对的 RLHF 开篇，不能当成论文设定。"
+          ],
+          "detail": "阶段顺序的原则是奖励越容易被钻越靠后，不是按奖励的表面形式排序。RLHF 使用学得的奖励模型，作者引用其容易被 hack 和漂移，因此放在八阶段末尾。这和“强验证器在前、软奖励在后”一致，但不应把它写成一套未公开的 KL 超参。"
+        }
+      },
+      "tracks": {
+        "data_synthesis": {
+          "status": "standard",
+          "headline": "不合成新回答，17 个公开数据集原样使用",
+          "summary": "SFT 的问题和回答都来自已发布的数据集，不做 Rufus-Air 自己的回答重生成，也不新标人工数据。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "论文没有一条单独的环境合成流水线。Agent 环境在 Rufus-Gym，但本轮没有把它写成数据合成配方。"
+          ],
+          "detail": ""
+        },
+        "pretraining": {
+          "status": "skipped",
+          "headline": "直接使用未改动的 GLM-4.5-Air-Base",
+          "summary": "架构、分词器和原生 think 格式都保持基座原样。这篇是后训练配方，不包含预训练数据或训练步数。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "预训练语料、token 量和学习率都不在 Rufus-Air 论文里。"
+          ],
+          "detail": ""
+        }
+      },
+      "architecture": "moe"
+    },
+    {
+      "id": "mimo-v2.6",
+      "name": "MiMo-V2.6",
+      "org": "Xiaomi (小米)",
+      "date": "2026.10",
+      "params_total": "310B / 1.02T",
+      "params_active": "15B / 42B",
+      "base_model": "MiMo-V2.6-Base (1M Context)",
+      "paradigm_type": "async_rl",
+      "paradigm_label": "Ultra-Large Batch Async RL + Groupwise Agentic Grading",
+      "openness": "Open Weights + Full Open-Source RL Dev Suite (Envs + Harnesses)",
+      "source_link": "https://arxiv.org/abs/2610.11959",
+      "source_label": "arXiv:2610.11959",
+      "infra_stack": "2.7B-3.7B Tokens/Step Async RL + MoE Router Freezing",
+      "topology_summary": "以“冻结 MoE 路由器 (Router Freezing) + 每步 2.7B~3.7B Tokens 超大 Batch 异步强化”为主干，连接 Coding、Office、Visual、Cybersecurity 四大可组合 Mini-harnesses，并由 Groupwise Agentic Grader 同时对正确率、方案优雅度与 Token 效率进行组内排序。",
+      "stages": {
+        "stage_0": {
+          "status": "standard",
+          "headline": "先 256K、再 1M 的 mid-training，并切到 Muown 和 MXFP4 QAT",
+          "summary": "Mid-training 用 agent 轨迹、仓库代码和图像/视频/音频把预训练和大规模 RL 接起来。隐藏层优化器换成带行范数约束的 Muown，router 仍用 AdamW。",
+          "methods": [
+            "两段长度：大部分算力在 256K，最后再扩到 1M",
+            "数据同时覆盖任务域和模态：代码、通用、视觉、研究任务的真实 agent 轨迹，加上文本、仓库级代码、图像、视频和音频",
+            "隐藏权重用 Muown（Muon 加显式行范数控制），embedding、LM head 和 MoE router 继续 AdamW",
+            "mid-training 做 MXFP4 QAT，让模型适应低精度"
+          ],
+          "data_And_filtering": "报告没有在 3.2 节给出各模态的 token 配比。",
+          "infra_notes": "作者事先担心 Adam 预训练模型切到 Muon 会失配，但这次 mid-training 没有出现 loss spike。",
+          "problems_solved": [],
+          "gaps": [
+            "旧稿把激活参数写成与总参数顺序可能对调的简写时，应以 Pro 42B、Flash 15B 为准。本文件的 params 字段若写成 15B / 42B，顺序对应 Flash / Pro。"
+          ],
+          "detail": "Pro 是 1.02T 总参数、42B 激活；Flash 是 310B 总参数、15B 激活。Mid-training 的直接目的之一是为大 batch RL 换优化器：混合任务 RL 里 AdamW 随 batch 变大效率下降，Muown 利用矩阵结构的更新。"
+        },
+        "stage_1": {
+          "status": "standard",
+          "headline": "RL 前只有一段未展开的短 SFT",
+          "summary": "报告只说 RL 之前有一段短 SFT，没有展开冷启动配方。",
+          "methods": [
+            "RL 从 SFT 检查点继承 FP32 master weights 和 Muown 的 row state。"
+          ],
+          "data_And_filtering": "未在报告第 4–5 节给出。",
+          "infra_notes": "SFT 本身的并行策略未摘出。",
+          "problems_solved": [],
+          "gaps": [
+            "旧稿“四大领域冷启动轨迹”和“统一 Mini-harness 接口”不能从短 SFT 这句话推出。"
+          ],
+          "detail": "第 4 节的原句是：经过一段短的 supervised fine-tuning 之后，再沿训练算力、环境和评分器三个方向放大 RL。SFT 的数据构成、是否多域工具协议对齐，都不在这段里。RL 开始时会带上 SFT 检查点的 FP32 master weight 和 Muown 行状态，用来稳住 MXFP4。"
+        },
+        "stage_2": {
+          "status": "core",
+          "headline": "每步 1568 条 prompt、2.7B–3.7B token，并冻结 router",
+          "summary": "Pro 的 RL 花费 260 万美元，Flash 90 万美元。训练 batch 是 1568 条 prompt、每条 16 条 rollout，约 2.5 万条序列、2.7B–3.7B token。",
+          "methods": [
+            "GRPO，异步 partial rollout，staleness 为 4。损失按 prompt 平均，避免回复变长就主导梯度",
+            "重要性比率逐 token 计算，四组解耦截断边界按熵在线调整：熵太低就放宽正优势的边界、收紧负优势的边界",
+            "动态采样丢掉全对或全错的组。Sample Mixer 按不同任务的 rollout 时长和通过率拼 batch",
+            "训推一致性用 R3 和 top-p 候选集重放。Partial rollout 不重算已经生成 token 的推理概率",
+            "冻结 MoE router。对照实验里，可训练 router 在第 9 层使专家负载的变异系数、峰值负载和冷专家比例在前 20 步单调变差；把 step-20 的 router 权重还原后负载恢复、基准分数不变，说明崩溃来自 router 漂移而不是专家权重"
+          ],
+          "data_And_filtering": "RL 任务占比：agent 和竞赛代码 68%，通用工具 12%，审美设计 13%，上下文遵循 3%，安全 4%。全对全错组被动态采样去掉。",
+          "infra_notes": "优化器是 Muown，无 weight decay、无 warmup。动量、Newton–Schulz 迭代次数和学习率写在公式里。Rollout 占 Pro 成本的 43.8%，训练 43.5%，评分器 12.7%。数据面和控制面拆开，以便把轨迹装进 2.7B–3.7B token 的 batch。",
+          "problems_solved": [
+            "moe_off_policy",
+            "curriculum_efficiency"
+          ],
+          "gaps": [
+            "Muown 学习率和截断边界的具体小数在 HTML 公式里，散文摘录没有展开，卡片不补数字。",
+            "“每步 37 亿 token”若被理解成恒定值，报告写的是 2.7B–3.7B 的范围。"
+          ],
+          "detail": "Partial rollout 用来填满长尾：收集一个训练 batch 时，没跑完的序列留到下一轮续写。代价是策略更新后要重新 prefill。大 batch 用来摊掉这次重算。报告没有把这一机制写成 token 级 WAL。"
+        },
+        "stage_3": {
+          "status": "core",
+          "headline": "代码 agent 用组内评分区分“同样通过测试”的轨迹",
+          "summary": "通过测试只是二值信号。高通过率任务用离线的 Groupwise Reward Synthesis；其余代码任务用在线的 Groupwise Advantage Redistribution。",
+          "methods": [
+            "GRS：离线比较多次 rollout，生成解法 rubric 和行为 rubric，训练时再乘回测试奖励。失败轨迹奖励保持为 0",
+            "GAR：混合结果的一组轨迹放进同一工作区，由 SFT 过的 agent grader 对照成功和失败轨迹，重分配正优势，并把确认被 hack 的奖励清零",
+            "环境覆盖代码、专业办公流程、视觉产物和网络安全。代码任务有五条合成路径，包括 GitHub PR、内部开发请求、规格驱动、CodeMidas 从现有代码反推任务，以及长程任务迭代"
+          ],
+          "data_And_filtering": "GitHub 路径会滤掉重复、损坏和不可复现的 PR。若 issue 足够完整就用 issue 当规格，否则由 LLM 根据补丁重写规格，并要求不泄漏实现细节。还使用经过过滤的公开数据和授权供应商数据。",
+          "infra_notes": "多种 harness 同时 rollout。报告第 6 节把控制面和数据面拆开，并描述多框架并发。",
+          "problems_solved": [
+            "reward_hacking",
+            "overthinking_latency",
+            "env_synthesis"
+          ],
+          "gaps": [
+            "“方案优雅度”是旧稿用词。论文写的是解法 rubric（需求、边界、与仓库一致）和行为 rubric（取证、检查修改效果），GAR 还写了沿若干维度比较通过的补丁。维度的完整五条清单在摘录处被截断。"
+          ],
+          "detail": "组内评分要解决的是：只给 0/1 时，通过的轨迹无法区分实现质量和求解行为。GRS 把 rubric 乘在测试奖励上，所以 rubric 不能把失败轨迹救成正奖励。GAR 则在线比较同一组里的轨迹。"
+        },
+        "stage_4": {
+          "status": "standard",
+          "headline": "混合 RL 之后用 MOPD2 补上难验证的领域",
+          "summary": "MOPD2 在学生自己的 rollout 上做多教师蒸馏，并增加从前缀起步的单轮蒸馏，用来覆盖游戏开发、科研和具身这类难在线验证的任务。",
+          "methods": [
+            "有合适 mixRL 教师的领域保持标准 MOPD：学生自己 rollout",
+            "Teacher-Prefix OPD 用教师轨迹的历史前缀；SFT-Prefix OPD 用示范前缀。含 T 个助手轮的轨迹提供 T 个前缀，学生只从该前缀采样新的一轮",
+            "开放域先用高质量合成示范训练 SFT 教师，再从固定示范前缀起步，减少学生在长程任务里越走越偏"
+          ],
+          "data_And_filtering": "前缀来自教师 rollout 或 SFT 数据。难验证领域包括长程游戏开发、科学研究和具身智能。",
+          "infra_notes": "教师按前缀预先指定，按学生已经生成的 token 提供 token 级监督。",
+          "problems_solved": [
+            "forgetting_conflict"
+          ],
+          "gaps": [
+            "各教师的采样权重和前缀比例没有表。"
+          ],
+          "detail": "这一阶段不是把 RL 检查点做权重合并且结束。它专门补 RL 奖励很难设计的领域。报告把最终榜单放在 MOPD2 之后。"
+        },
+        "stage_5": {
+          "status": "standard",
+          "headline": "防刷分写在环境和 GAR 里",
+          "summary": "防奖励黑客写在环境构造和 GAR 里：确认被 hack 的奖励清零，并在训练前用执行检查、rollout 审计和对抗测试。",
+          "methods": [
+            "GAR 将确认的 hack 奖励置 0。",
+            "损失按 prompt 平均，抑制回复变长。"
+          ],
+          "data_And_filtering": "训练前的审计包括执行检查、基于 rollout 的审查和对抗测试。",
+          "infra_notes": "未单列一个末置 RLHF 阶段。",
+          "problems_solved": [
+            "reward_hacking"
+          ],
+          "gaps": [
+            "“多层级”具体有几层，摘要只给了名称，正文层次未在本轮逐条列出。"
+          ],
+          "detail": "报告把奖励可靠性放在环境一节（4.2.6）和 GAR 里，而不是最后一个通用对齐阶段。多层级防御是原文 “multi-layer defense against reward hacking”，具体层次没有在摘要里展开成清单。Overthinking 的对应机制是 prompt 级损失聚合，以及 grader 把优势分给更短、更省 token 的解。"
+        }
+      },
+      "tracks": {
+        "data_synthesis": {
+          "status": "core",
+          "headline": "代码任务用五条路径合成，写在 RL 环境一节",
+          "summary": "包括 GitHub PR、内部开发请求、规格驱动、用 CodeMidas 从现有代码反推任务，以及长程任务迭代。公开和授权数据再经过过滤。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "各路径的条数和通过率阈值没有在摘录里形成表。视觉、办公和安全环境的合成步骤也未逐条列入。"
+          ],
+          "detail": ""
+        },
+        "pretraining": {
+          "status": "standard",
+          "headline": "预训练覆盖文本、视觉和音频，优化器用 AdamW",
+          "summary": "报告说预训练建立通用理解，mid-training 才把模型和后面的大 batch RL 接起来。篇幅主要不在预训练配方。",
+          "methods": [],
+          "data_And_filtering": "",
+          "infra_notes": "",
+          "problems_solved": [],
+          "gaps": [
+            "预训练 token 量、数据配比和学习率未在 3.2 节给出。"
+          ],
+          "detail": ""
+        }
+      },
+      "variants": [
+        {
+          "id": "flash",
+          "label": "Flash",
+          "params_total": "310B",
+          "params_active": "15B",
+          "overrides": {
+            "stage_2": {
+              "status": "core",
+              "headline": "RL 花费 90 万美元",
+              "summary": "Flash 与 Pro 使用同一套大 batch 设置：每步 1568 条 prompt、16 条 rollout。报告单列的 RL 花费是 90 万美元。",
+              "methods": [
+                "报告把 router 冻结的对照实验写在 Pro 上，没有另给一套 Flash 算法。"
+              ],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [
+                "moe_off_policy",
+                "curriculum_efficiency"
+              ],
+              "gaps": [
+                "Flash 的 DeepSWE 起止分数在摘录的公式里，没有写成可引用的小数。"
+              ],
+              "detail": ""
+            }
+          }
+        },
+        {
+          "id": "pro",
+          "label": "Pro",
+          "params_total": "1.02T",
+          "params_active": "42B",
+          "overrides": {
+            "stage_2": {
+              "status": "core",
+              "headline": "RL 花费 260 万美元，并在 Pro 上验证冻结 router",
+              "summary": "Pro 的 RL 花费是 260 万美元。每步同样是 1568 条 prompt、约 2.7B–3.7B token。冻结 router 的负载对照是在 Pro 上做的。",
+              "methods": [
+                "可训练 router 会在前 20 步把专家负载打歪；还原 router 权重后负载恢复，说明问题来自 router 漂移。"
+              ],
+              "data_And_filtering": "",
+              "infra_notes": "",
+              "problems_solved": [
+                "moe_off_policy",
+                "curriculum_efficiency"
+              ],
+              "gaps": [],
+              "detail": ""
+            }
+          }
+        }
+      ],
+      "architecture": "moe"
+    }
+  ]
+}

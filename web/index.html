@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>100B+ Post-Training Recipes Atlas</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            slate: {
+              850: '#151e2e',
+              925: '#0b111e',
+              950: '#060a12'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <link rel="stylesheet" href="./css/app.css" />
+</head>
+
+<body class="bg-[#F8FAFC] dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen flex flex-col selection:bg-indigo-600 selection:text-white">
+
+  <!-- ======================= TOP HEADER ======================= -->
+  <header class="sticky top-0 z-30 border-b border-slate-200/90 dark:border-slate-800/80 bg-white/95 dark:bg-slate-950/90 backdrop-blur-md shadow-xs">
+    <div class="max-w-[1640px] mx-auto px-4 sm:px-6 py-3 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+      <!-- Left Brand & Title -->
+      <div class="flex items-start sm:items-center gap-3.5">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-500 to-sky-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0 mt-0.5 sm:mt-0">
+          <i class="ph-bold ph-flow-arrow text-xl"></i>
+        </div>
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+              100B+ Post-Training Recipes Atlas
+            </h1>
+            <span class="px-2 py-0.5 text-[11px] font-mono font-medium rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              2025–2026
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            百亿与千亿开源模型的后训练配方，按公开时间排列。
+          </p>
+        </div>
+      </div>
+
+      <!-- Right Actions & Navigation Tabs -->
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Main View Switcher (5 Tabs) -->
+        <nav class="flex flex-wrap items-center bg-slate-100/90 dark:bg-slate-900 p-1 rounded-xl border border-slate-200/90 dark:border-slate-800 text-xs font-medium">
+          <button onclick="switchView('swimlane')" id="tab-swimlane" class="view-tab px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all bg-white dark:bg-slate-800 text-indigo-600 dark:text-sky-400 shadow-xs font-semibold">
+            <i class="ph-bold ph-table"></i>
+            <span>Overview</span>
+          </button>
+          <button onclick="switchView('pipelines')" id="tab-pipelines" class="view-tab px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <i class="ph-bold ph-git-fork text-indigo-500"></i>
+            <span>Pipelines</span>
+          </button>
+          <button onclick="switchView('problems')" id="tab-problems" class="view-tab px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <i class="ph-bold ph-first-aid-kit"></i>
+            <span>Problems</span>
+          </button>
+          <button onclick="switchView('diff')" id="tab-diff" class="view-tab px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <i class="ph-bold ph-scales"></i>
+            <span>Compare</span>
+          </button>
+          <button onclick="switchView('repo')" id="tab-repo" class="view-tab px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <i class="ph-bold ph-code-block"></i>
+            <span>Export</span>
+          </button>
+        </nav>
+
+        <!-- Theme Toggle -->
+        <button onclick="toggleTheme()" class="px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 text-xs font-medium shadow-2xs" title="切换明亮/深色模式">
+          <i id="theme-icon" class="ph-bold ph-moon text-sm text-indigo-600 dark:text-amber-400"></i>
+          <span id="theme-label" class="hidden sm:inline">深色</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================= TOP SUMMARY & FILTER BAR (FOR SWIMLANE) ======================= -->
+  <section id="control-bar" class="border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-925/70">
+    <div class="max-w-[1640px] mx-auto px-4 sm:px-6 py-3 flex flex-col gap-2.5">
+      
+      <!-- Top Row: Paradigm Filter + Search + Quick Stats -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <!-- Paradigm Filter -->
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1">
+            <i class="ph-bold ph-funnel text-indigo-600"></i> Paradigm
+          </span>
+          <button onclick="setParadigmFilter('all')" data-paradigm="all" class="paradigm-btn px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow-xs transition">
+            All
+          </button>
+          <button onclick="setParadigmFilter('serial')" data-paradigm="serial" class="paradigm-btn px-3 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-indigo-400 transition">
+            Serial
+          </button>
+          <button onclick="setParadigmFilter('opd')" data-paradigm="opd" class="paradigm-btn px-3 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-emerald-400 transition">
+            Specialist + OPD
+          </button>
+          <button onclick="setParadigmFilter('async_rl')" data-paradigm="async_rl" class="paradigm-btn px-3 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-amber-400 transition">
+            Async RL
+          </button>
+          <span class="mx-1 h-4 w-px bg-slate-200 dark:bg-slate-700"></span>
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1">Architecture</span>
+          <button onclick="setArchitectureFilter('all')" data-arch="all" class="arch-btn px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs transition">All</button>
+          <button onclick="setArchitectureFilter('moe')" data-arch="moe" class="arch-btn px-3 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-slate-400 transition">MoE</button>
+          <button onclick="setArchitectureFilter('dense')" data-arch="dense" class="arch-btn px-3 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-slate-400 transition">Dense</button>
+        </div>
+
+        <!-- Search Box & Reset -->
+        <div class="flex items-center gap-2">
+          <div class="relative flex-1 sm:w-64">
+            <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input 
+              id="search-input" 
+              type="text" 
+              oninput="handleSearch(this.value)"
+              placeholder="Search recipes" 
+              class="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition"
+            />
+          </div>
+          <button onclick="expandAllInlinePipelines()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition flex items-center gap-1" title="在表格内展开或折叠所有厂商的专属训练流程图">
+            <i class="ph-bold ph-git-fork"></i>
+            <span id="expand-all-btn-text">All pipelines</span>
+          </button>
+          <button onclick="resetAllFilters()" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 transition flex items-center gap-1" title="重置高亮与过滤">
+            <i class="ph-bold ph-arrow-counter-clockwise"></i>
+            <span>Reset</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Second Row: Core Problem Highlight Pills -->
+      <div class="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200/70 dark:border-slate-800/60">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1">
+            <i class="ph-bold ph-target text-rose-600"></i> Highlight
+        </span>
+        <div id="problem-pills-container" class="flex flex-wrap items-center gap-1.5">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================= MAIN WORKSPACE ======================= -->
+  <main class="flex-1 max-w-[1640px] w-full mx-auto px-4 sm:px-6 py-5">
+
+    <!-- =================================================================== -->
+    <!-- VIEW 1: PIPELINE SWIMLANE MATRIX + INLINE EXPANDABLE PIPELINES      -->
+    <!-- =================================================================== -->
+    <div id="view-swimlane" class="space-y-4">
+      <!-- Legend & Instruction Banner -->
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-indigo-50/70 dark:bg-sky-500/5 border border-indigo-200/80 dark:border-sky-500/20 text-xs text-slate-700 dark:text-slate-300">
+        <div class="flex items-center gap-2">
+          <i class="ph-fill ph-info text-indigo-600 dark:text-sky-400 text-base shrink-0"></i>
+          <span>
+            行按公开月份从早到晚排列。点击单元格查看中文说明。Core 表示该配方的主要阶段，Not reported 表示来源没有单独报告这一步。
+          </span>
+        </div>
+        <div class="flex items-center gap-3 shrink-0 text-[11px]">
+          <span class="flex items-center gap-1.5"><span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-600 text-white">Core</span> 主要阶段</span>
+          <span class="flex items-center gap-1.5"><span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700">Reported</span> 来源有记录</span>
+          <span class="flex items-center gap-1.5"><span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200 text-slate-600">Not reported</span> 来源未单列</span>
+        </div>
+      </div>
+
+      <!-- Horizontal Scrollable Swimlane Table -->
+      <div class="overflow-x-auto rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-sm">
+        <table class="w-full border-collapse min-w-[1720px] text-left">
+          <thead id="swimlane-thead">
+            <tr id="swimlane-header-row" class="border-b border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/95 text-xs">
+            </tr>
+          </thead>
+          <tbody id="swimlane-body" class="divide-y divide-slate-200/90 dark:divide-slate-800/80 text-xs">
+            <!-- Populated dynamically via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 2: DEDICATED VENDOR TRAINING PIPELINE TOPOLOGIES (NEW!)        -->
+    <!-- =================================================================== -->
+    <div id="view-pipelines" class="hidden space-y-5">
+      <!-- Top Selector & Explanation Bar -->
+      <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+              Architectural Topology View
+            </span>
+            <h2 class="text-base font-bold text-slate-900 dark:text-white">
+              各厂商 100B+ 模型专属后训练 Pipeline 拓扑图谱
+            </h2>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            不同厂商的后训练拓扑存在本质差异（如 Amazon 的<strong>单链条 8 阶段防 Hack 串行流</strong>、DeepSeek-V4 的<strong>4 专家分治扇出与统一在线蒸馏扇入 DAG</strong>、MiniMax 的<strong>数据合成环+强化环双引擎</strong>）。点击图谱中的任意节点可查看对应阶段的参数与防坑细节。
+          </p>
+        </div>
+
+        <!-- Model Filter Pills for Pipeline View -->
+        <div id="pipeline-selector-pills" class="flex flex-wrap items-center gap-1.5 shrink-0">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <!-- Dedicated Pipelines Container -->
+      <div id="dedicated-pipelines-container" class="space-y-6">
+        <!-- Populated dynamically via JS -->
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 3: PROBLEM-CENTRIC MATRIX                                      -->
+    <!-- =================================================================== -->
+    <div id="view-problems" class="hidden space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 rounded-xl bg-rose-50/80 dark:bg-rose-500/5 border border-rose-200/80 dark:border-rose-500/20 text-xs text-slate-700 dark:text-slate-300">
+        <div class="flex items-center gap-2">
+          <i class="ph-fill ph-lightning text-rose-600 dark:text-rose-400 text-base shrink-0"></i>
+          <span>
+            <strong>Problems。</strong>按训练中反复出现的失效模式汇总各配方的对应做法。
+          </span>
+        </div>
+      </div>
+
+      <div id="problem-cards-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <!-- Populated dynamically via JS -->
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 4: A/B MODEL DIFF VIEW (WITH VISUAL PIPELINE COMPARISON)       -->
+    <!-- =================================================================== -->
+    <div id="view-diff" class="hidden space-y-5">
+      <!-- Preset Bar & Selectors -->
+      <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <h2 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <i class="ph-bold ph-scales text-indigo-600"></i>
+            Compare two recipes
+          </h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            同时并排展示两个模型的<strong>专属训练流程图谱</strong>，并按同一套英文表头逐项对比。
+          </p>
+        </div>
+
+        <!-- Quick Presets -->
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs font-medium text-slate-400 mr-1">一键预设对比:</span>
+          <button onclick="setDiffPair('rufus-air-106b', 'intellect-3.1-106b')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-100 transition">
+            🔥 同 106B 基座对决: Rufus-Air vs INTELLECT-3.1
+          </button>
+          <button onclick="setDiffPair('rufus-air-106b', 'deepseek-v4')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 transition">
+            ⚡ 串行 vs 分治蒸馏: Rufus-Air vs DeepSeek-V4
+          </button>
+          <button onclick="setDiffPair('nemotron-3.5-super', 'glm-5-744b')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300 border border-sky-200 dark:border-sky-500/30 hover:bg-sky-100 transition">
+            📘 Mid-Training vs Error-Mask: Nemotron 3.5 vs GLM-5
+          </button>
+          <button onclick="setDiffPair('mimo-v2.6', 'minimax-m2.5')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 transition">
+            🛠️ Agent 沙盒对决: MiMo-V2.6 vs MiniMax-M2.5
+          </button>
+        </div>
+      </div>
+
+      <!-- Model A / Model B Dropdowns -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="p-3.5 rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50/60 dark:bg-indigo-500/5 flex items-center justify-between gap-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400">Model A (左侧/上方基准配方)</span>
+          <select id="diff-select-a" onchange="renderDiffView()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 shadow-2xs">
+          </select>
+        </div>
+        <div class="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-500/5 flex items-center justify-between gap-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Model B (右侧/下方对照配方)</span>
+          <select id="diff-select-b" onchange="renderDiffView()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 shadow-2xs">
+          </select>
+        </div>
+      </div>
+
+      <!-- Diff Content Container -->
+      <div id="diff-comparison-container" class="space-y-4">
+        <!-- Populated dynamically via JS -->
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 5: REPO ARCHITECTURE, JSON BUILDER & README GENERATOR          -->
+    <!-- =================================================================== -->
+    <div id="view-repo" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left 5 Cols: Repo Blueprint & New Model Generator -->
+        <div class="lg:col-span-5 space-y-5">
+          <div class="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i class="ph-bold ph-folder-notch-open text-indigo-600 text-lg"></i>
+                推荐 GitHub Repo 目录架构
+              </h3>
+              <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">Data-View Decoupled</span>
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              将<strong>后训练标准阶段（Backbone）</strong>、<strong>痛点分类（Problems）</strong>与<strong>各模型独立配方及专属拓扑（Recipes）</strong>拆分为独立 JSON，社区贡献者只需提交单个模型的 JSON 文件即可通过 GitHub Action 自动合入网页与 README。
+            </p>
+            <pre class="p-4 rounded-xl bg-slate-900 text-slate-100 font-mono text-xs overflow-x-auto leading-relaxed border border-slate-800">awesome-100b-post-training/
+├── data/
+│   ├── backbone.json        # 固定的 6 大后训练阶段定义
+│   ├── problems.json        # 6 大核心工程/算法痛点字典
+│   └── recipes/             # 每个模型独立一个 JSON (含专属拓扑节点)
+│       ├── rufus-air-106b.json
+│       ├── intellect-3.1-106b.json
+│       ├── nemotron-3.5-super.json
+│       ├── glm-5-744b.json
+│       ├── deepseek-v4.json
+│       ├── mimo-v2.6.json
+│       └── minimax-m2.5.json
+├── scripts/
+│   ├── build_site_data.py   # 校验 JSON 并打包生成前端数据
+│   └── generate_readme.py   # 自动生成 README 静态 Markdown 对比表
+├── docs/
+│   └── index.html           # 当前交互式看板 (GitHub Pages 直接托管)
+└── README.md</pre>
+          </div>
+
+          <!-- Interactive New Recipe Generator Form -->
+          <div class="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-4">
+            <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <i class="ph-bold ph-plus-circle text-emerald-600 text-lg"></i>
+              快速生成新模型 JSON 模板 (PR Helper)
+            </h3>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <label class="block text-slate-500 mb-1 font-medium">模型名称 (Model Name)</label>
+                <input id="form-name" type="text" value="Qwen3.8-2.4T" oninput="updateTemplatePreview()" class="w-full px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"/>
+              </div>
+              <div>
+                <label class="block text-slate-500 mb-1 font-medium">机构 & 发布年月</label>
+                <input id="form-org" type="text" value="Alibaba · 2026.08" oninput="updateTemplatePreview()" class="w-full px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"/>
+              </div>
+              <div>
+                <label class="block text-slate-500 mb-1 font-medium">总参数 / 激活参数</label>
+                <input id="form-params" type="text" value="2.4T Total / 95B Active" oninput="updateTemplatePreview()" class="w-full px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"/>
+              </div>
+              <div>
+                <label class="block text-slate-500 mb-1 font-medium">后训练拓扑类型</label>
+                <select id="form-paradigm" onchange="updateTemplatePreview()" class="w-full px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white">
+                  <option value="opd">Fan-out Specialists -> Unified OPD</option>
+                  <option value="serial">Multi-Stage Serial Chain</option>
+                  <option value="async_rl">Hub-and-Spoke Async Multi-Env RL</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-xs text-slate-500">自动生成的 `data/recipes/new-model.json` 片段:</span>
+                <button onclick="copyGeneratedTemplate()" class="text-xs text-indigo-600 hover:text-indigo-500 font-semibold flex items-center gap-1">
+                  <i class="ph-bold ph-copy"></i> 复制 JSON
+                </button>
+              </div>
+              <pre id="template-json-preview" class="p-3 rounded-xl bg-slate-900 text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-56 border border-slate-800"></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right 7 Cols: Full Dataset JSON & README.md Markdown Exporter -->
+        <div class="lg:col-span-7 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i class="ph-bold ph-database text-indigo-600 text-lg"></i>
+                仓库初始数据源与 `README.md` 一键导出
+              </h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                可直接导出全量结构化 JSON 或自动生成的 GitHub `README.md` 静态汇总表格。
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="copyReadmeMarkdown()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1.5 shadow-xs">
+                <i class="ph-bold ph-markdown-logo"></i>
+                <span>复制 GitHub README.md 表格</span>
+              </button>
+              <button onclick="copyFullDataset()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white transition flex items-center gap-1.5 shadow-xs">
+                <i class="ph-bold ph-copy"></i>
+                <span>复制完整 JSON</span>
+              </button>
+            </div>
+          </div>
+          <pre id="full-json-viewer" class="flex-1 p-4 rounded-xl bg-slate-900 text-slate-200 font-mono text-xs overflow-auto max-h-[680px] border border-slate-800 leading-relaxed"></pre>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ======================= RIGHT SLIDE-OVER DETAIL DRAWER ======================= -->
+  <div id="detail-drawer-backdrop" onclick="closeDrawer()" class="fixed inset-0 bg-slate-900/35 backdrop-blur-xs z-40 hidden transition-opacity"></div>
+  <aside id="detail-drawer" class="fixed top-0 right-0 h-full w-full max-w-xl bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 z-50 transform translate-x-full transition-transform duration-300 ease-out flex flex-col shadow-2xl">
+    <!-- Drawer Header -->
+    <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-4 bg-slate-50/80 dark:bg-slate-925">
+      <div id="drawer-header-content">
+        <!-- Populated via JS -->
+      </div>
+      <button onclick="closeDrawer()" class="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition">
+        <i class="ph-bold ph-x text-lg"></i>
+      </button>
+    </div>
+
+    <!-- Drawer Body -->
+    <div id="drawer-body-content" class="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
+      <!-- Populated via JS -->
+    </div>
+
+    <!-- Drawer Footer -->
+    <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-925 flex items-center justify-between text-xs">
+      <span class="text-slate-500">点击主视图中的任意阶段卡片或拓扑节点可直接切换</span>
+      <button onclick="closeDrawer()" class="px-4 py-1.5 rounded-lg font-semibold bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700 transition">
+        关闭面板
+      </button>
+    </div>
+  </aside>
+
+  <!-- ======================= TOAST NOTIFICATION ======================= -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold shadow-lg transform translate-y-16 opacity-0 transition-all duration-300 flex items-center gap-2 pointer-events-none">
+    <i class="ph-bold ph-check-circle text-base"></i>
+    <span id="toast-msg">已复制到剪贴板</span>
+  </div>
+
+  <!-- ======================= APPLICATION DATA & LOGIC ======================= -->
+  <script src="./js/pipelines.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>
